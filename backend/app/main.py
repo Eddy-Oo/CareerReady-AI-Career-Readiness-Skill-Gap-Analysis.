@@ -214,6 +214,7 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)):
     except IntegrityError:
         db.rollback()
         raise HTTPException(status_code=409, detail="Email already registered.")
+    ensure_skill_catalog(db)
     return auth_response(user)
 
 
@@ -229,6 +230,7 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=401, detail="Invalid email or password.")
     if not secrets.compare_digest(saved_hash, check_hash):
         raise HTTPException(status_code=401, detail="Invalid email or password.")
+    ensure_skill_catalog(db)
     return auth_response(user)
 
 
