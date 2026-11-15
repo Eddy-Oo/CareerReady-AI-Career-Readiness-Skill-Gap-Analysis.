@@ -1,4 +1,9 @@
-import type { ResumeAnalysis, Skill, ExtractedEducation, ExtractedExperience } from "../types";
+import type {
+  ResumeAnalysis,
+  Skill,
+  ExtractedEducation,
+  ExtractedExperience,
+} from "../types";
 import { SKILL_DB, aliasMatches } from "../data/skills";
 
 const uuid = () =>
@@ -15,6 +20,14 @@ export function extractSkillsFromText(text: string): Skill[] {
   const lower = ` ${text.toLowerCase()} `;
   const found: Skill[] = [];
   for (const def of SKILL_DB) {
+    if (
+      def.name === "C" &&
+      !/\bC[ \t]+(?:[Pp]rogramming|[Ll]anguage)\b|(?:^|[,;:])[ \t]*C[ \t]*(?=[,;]|$)/m.test(
+        text
+      )
+    ) {
+      continue;
+    }
     let occurrences = 0;
     for (const alias of def.aliases) {
       const a = alias.trim().toLowerCase();
@@ -23,7 +36,9 @@ export function extractSkillsFromText(text: string): Skill[] {
         if (lower.includes(a)) occurrences += 1;
         continue;
       }
-      const escaped = a.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\//g, "\\/");
+      const escaped = a
+        .replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+        .replace(/\//g, "\\/");
       const re = new RegExp(`(?<![a-z0-9+#])${escaped}(?![a-z0-9+#])`, "gi");
       occurrences += (lower.match(re) ?? []).length;
     }
@@ -37,7 +52,7 @@ export function extractSkillsFromText(text: string): Skill[] {
 }
 
 const DEGREE_RE =
-  /(bachelor(?:'s)?|b\.?s\.?c?\.?|b\.?tech|bca|b\.?e\.?|master(?:'s)?|m\.?s\.?c?\.?|m\.?tech|mba|mca|ph\.?d|doctorate|associate(?:'s)?)[^.\n,]{0,80}(?:in|of)?[^.\n,]{0,80}/gi;
+  /\b(?:bachelor(?:'s)?|b\.?s\.?c?|b\.?tech|bca|b\.?e|master(?:'s)?|m\.?s\.?c?|m\.?tech|mba|mca|ph\.?d|doctorate|associate(?:'s)?)\b\.?[^.\n,]{0,80}/gi;
 const YEAR_RE = /(20\d{2}|graduating\s+in\s+20\d{2})/i;
 const INSTITUTION_RE =
   /(?:[A-Z][\w'’.-]*\s+){0,4}(?:university|college|institute|school of|faculty of)[^.\n|]{0,70}/gi;
@@ -49,10 +64,22 @@ const PROJECT_HEADINGS = /(projects|personal projects|academic projects)/i;
 export function extractEducation(text: string): ExtractedEducation[] {
   const out: ExtractedEducation[] = [];
   // Scope institution/degree parsing to the education section when present.
-  const secMatch = text.match(
-    /(education|academic background|academics)\b[\s\S]{0,600}?(?=\n\s*(experience|employment|work history|projects|technical skills|certifications)\b)/i
+  const lines = text.split(/\r?\n/);
+  const start = lines.findIndex((line) =>
+    /^(education|academic background|academics)\s*:?$/i.test(line.trim())
   );
-  const scope = secMatch ? secMatch[0] : text;
+
+  const nextHeading =
+    /^(?:(?:professional|work|relevant) experience|experience|employment|work history|(?:key |technical |soft )?skills|(?:key )?achievements|projects|certifications|awards|passions|interests|references)\s*:?$/i;
+
+  const end = lines.findIndex(
+    (line, index) => index > start && nextHeading.test(line.trim())
+  );
+
+  const scope =
+    start < 0
+      ? text
+      : lines.slice(start + 1, end < 0 ? undefined : end).join("\n");
   const degrees = scope.match(DEGREE_RE) ?? [];
   const institutions = [
     ...new Set(
@@ -62,9 +89,14 @@ export function extractEducation(text: string): ExtractedEducation[] {
     ),
   ];
   const yearMatch = scope.match(YEAR_RE);
-  const uniqueDegrees = [...new Set(degrees.map((d) => d.replace(/\s+/g, " ").trim()))];
+  const uniqueDegrees = [
+    ...new Set(degrees.map((d) => d.replace(/\s+/g, " ").trim())),
+  ];
   if (uniqueDegrees.length === 0 && institutions.length === 0) return out;
-  const count = Math.max(uniqueDegrees.length, Math.min(institutions.length, 2));
+  const count = Math.max(
+    uniqueDegrees.length,
+    Math.min(institutions.length, 2)
+  );
   for (let i = 0; i < count; i++) {
     out.push({
       degree: uniqueDegrees[i],
@@ -76,41 +108,82 @@ export function extractEducation(text: string): ExtractedEducation[] {
 }
 
 export function extractExperiences(text: string): ExtractedExperience[] {
-  const out: ExtractedExperience[] = [];
-  const lines = text.split(/\n/).map((l) => l.trim());
-  const expIdx = lines.findIndex((l) => EXP_HEADINGS.test(l) && l.length < 60);
-  const projIdx = lines.findIndex((l) => PROJECT_HEADINGS.test(l) && l.length < 60);
-  const start = expIdx >= 0 ? expIdx + 1 : 0;
-  const end = projIdx > start ? projIdx : Math.min(lines.length, start + 40);
+  const lines = text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
 
-  const titleRe =
-    /(engineer|developer|intern|analyst|assistant|specialist|consultant|researcher|lead|manager|designer|administrator)/i;
-  const durationRe = /((?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s*20\d{2}|20\d{2}\s*[–-]\s*(?:present|20\d{2})|summer\s+20\d{2}|20\d{2})/i;
+  const heading =
+    /^(?:(?:professional|work|relevant) experience|experience|employment(?: history)?|work history|internships?):?$/i;
 
-  for (let i = start; i < end; i++) {
-    const line = lines[i];
-    if (!line || line.length < 8) continue;
-    if (/^(skills|education|certifications|summary)/i.test(line)) break;
-    if (titleRe.test(line)) {
-      const parts = line.split(/\s+[|–—-]\s+|\s+at\s+/i);
-      const duration = line.match(durationRe)?.[0];
-      out.push({
-        title: parts[0]?.trim().slice(0, 70),
-        organization: parts[1]?.replace(/\s*\([^)]*\)\s*/g, " ").trim().slice(0, 60) || undefined,
-        duration: duration,
-        summary: undefined,
-      });
-      if (out.length >= 5) break;
-    }
-  }
-  // Attach bullet summaries
-  if (out.length > 0) {
-    const bullets = lines.filter((l) => /^[-•*]/.test(l)).slice(0, 3);
-    if (bullets.length) {
-      out[0].summary = bullets.map((b) => b.replace(/^[-•*]\s*/, "")).join(" ");
-    }
-  }
-  return out;
+  const nextSection =
+    /^(?:(?:technical |soft |key )?skills|education|(?:personal |academic )?projects|certifications|(?:key )?achievements|awards|summary|interests|passions):?$/i;
+
+  const bullet = /^(?:[-•*▪◦«©¢\uF0B7]|e(?=\s))\s+/;
+
+  const title =
+    /^(?:[\p{L}\p{N}][\p{L}\p{N}+#./&'-]*[ \t]+){0,7}(?:engineer|developer|intern|analyst|assistant|specialist|consultant|researcher|lead|manager|designer|administrator)$/iu;
+
+  const date = String.raw`(?:\d{1,2}/(?:19|20)\d{2}|(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?|Summer|Spring|Fall|Winter)\.?\s+(?:19|20)\d{2}|\b(?:19|20)\d{2}\b)`;
+
+  const duration = new RegExp(
+    `${date}(?:\\s*(?:[–—-]|\\bto\\b)\\s*(?:${date}|Present|Current))?`,
+    "i"
+  );
+
+  const first = lines.findIndex((line) => heading.test(line)) + 1;
+  const end = lines.findIndex(
+    (line, index) => index >= first && nextSection.test(line)
+  );
+  const section = lines.slice(first, end < 0 ? undefined : end);
+
+  const roles = section.flatMap((line, index) => {
+    if (bullet.test(line)) return [];
+
+    const separator = /,\s+|\s+[|–—-]\s+|\s+at\s+/i.exec(line);
+    const role = separator ? line.slice(0, separator.index) : line;
+    const company = separator
+      ? line.slice(separator.index + separator[0].length)
+      : undefined;
+    const name = role
+      .replace(duration, "")
+      .replace(/[\s(]+$/, "")
+      .trim();
+
+    return title.test(name) ? [{ index, name, company }] : [];
+  });
+
+  return roles.slice(0, 5).map((role, index) => {
+    const details = section.slice(role.index + 1, roles[index + 1]?.index);
+    const firstBullet = details.findIndex((line) => bullet.test(line));
+    const header = details.slice(0, firstBullet < 0 ? 5 : firstBullet);
+    const metadata = [section[role.index], ...header].join(" ");
+
+    const companyLine = role.company ?? header[0] ?? "";
+    const dateIndex = companyLine.search(duration);
+    const companyText =
+      dateIndex < 0 ? companyLine : companyLine.slice(0, dateIndex);
+    const organization = (
+      role.company ? companyText : companyText.replace(/,\s*[^,]+$/, "")
+    )
+      .replace(/[(\s–—-]+$/, "")
+      .trim();
+
+    const summary =
+      firstBullet < 0
+        ? undefined
+        : details
+            .slice(firstBullet)
+            .map((line) => line.replace(bullet, ""))
+            .join(" ");
+
+    return {
+      title: role.name,
+      organization: organization || undefined,
+      duration: metadata.match(duration)?.[0],
+      summary,
+    };
+  });
 }
 
 export function extractProjects(text: string): string[] {
@@ -131,7 +204,10 @@ export function extractProjects(text: string): string[] {
 }
 
 /** Build a full local ResumeAnalysis from raw resume text. */
-export function analyzeResumeLocally(text: string, fileName: string): ResumeAnalysis {
+export function analyzeResumeLocally(
+  text: string,
+  fileName: string
+): ResumeAnalysis {
   const all = extractSkillsFromText(text);
   const technical = all.filter((s) => s.category !== "Soft Skills");
   const soft = all.filter((s) => s.category === "Soft Skills");
@@ -152,24 +228,79 @@ export function analyzeResumeLocally(text: string, fileName: string): ResumeAnal
 }
 
 /** Extract plain text from a PDF file using pdf.js when available. */
-export async function extractPdfText(file: File): Promise<string> {
-  const pdfjs = await import("pdfjs-dist");
-  const workerSrc = new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url).href;
-  pdfjs.GlobalWorkerOptions.workerSrc = workerSrc;
-  const buf = await file.arrayBuffer();
-  const doc = await pdfjs.getDocument({ data: buf }).promise;
-  const parts: string[] = [];
-  const maxPages = Math.min(doc.numPages, 8);
-  for (let p = 1; p <= maxPages; p++) {
-    const page = await doc.getPage(p);
-    const content = await page.getTextContent();
-    const pageText = content.items
-      .map((it) => ("str" in it ? it.str : ""))
-      .join(" ");
-    parts.push(pageText);
+export async function extractResumeText(
+  file: File,
+  isPdf: boolean,
+  onOcrStart: () => void
+): Promise<string> {
+  let worker:
+    | Awaited<ReturnType<typeof import("tesseract.js").createWorker>>
+    | undefined;
+
+  async function readImage(image: File | HTMLCanvasElement) {
+    if (!worker) {
+      onOcrStart();
+      const { createWorker, PSM } = await import("tesseract.js");
+      worker = await createWorker("eng");
+      await worker.setParameters({ tessedit_pageseg_mode: PSM.AUTO });
+    }
+
+    const { data } = await worker.recognize(image);
+    return data.text.trim();
   }
-  await doc.destroy();
-  const text = parts.join("\n").replace(/\s+/g, " ").trim();
-  if (!text) throw new Error("No selectable text found in this PDF. Please upload a text-based PDF resume.");
-  return text;
+
+  try {
+    if (!isPdf) {
+      const text = await readImage(file);
+      if (!text) throw new Error("No text detected. Try a clearer photo.");
+      return text;
+    }
+
+    const pdfjs = await import("pdfjs-dist");
+    pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+      "pdfjs-dist/build/pdf.worker.min.mjs",
+      import.meta.url
+    ).href;
+
+    const pdf = await pdfjs.getDocument({ data: await file.arrayBuffer() })
+      .promise;
+    const pages: string[] = [];
+
+    try {
+      for (let number = 1; number <= Math.min(pdf.numPages, 8); number++) {
+        const page = await pdf.getPage(number);
+        const content = await page.getTextContent();
+        const text = content.items
+          .map((item) =>
+            "str" in item ? item.str + (item.hasEOL ? "\n" : " ") : ""
+          )
+          .join("")
+          .trim();
+
+        if (text) {
+          pages.push(text);
+          continue;
+        }
+
+        const viewport = page.getViewport({ scale: 2 });
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.ceil(viewport.width);
+        canvas.height = Math.ceil(viewport.height);
+        const context = canvas.getContext("2d");
+        if (!context)
+          throw new Error("Could not prepare the PDF page for OCR.");
+
+        await page.render({ canvasContext: context, viewport }).promise;
+        pages.push(await readImage(canvas));
+      }
+    } finally {
+      await pdf.destroy();
+    }
+
+    const text = pages.join("\n").trim();
+    if (!text) throw new Error("No text detected. Try a clearer scan.");
+    return text;
+  } finally {
+    await worker?.terminate();
+  }
 }

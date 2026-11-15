@@ -11,12 +11,13 @@
   "dependencies": {
     "@vitejs/plugin-react": "^4.3.4",
     "lucide-react": "^0.468.0",
+    "pdfjs-dist": "^4.10.38",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.28.1",
     "recharts": "^2.15.0",
-    "zustand": "^5.0.2",
-    "pdfjs-dist": "^4.10.38"
+    "tesseract.js": "^7.0.0",
+    "zustand": "^5.0.2"
   },
   "devDependencies": {
     "@types/react": "^18.3.18",

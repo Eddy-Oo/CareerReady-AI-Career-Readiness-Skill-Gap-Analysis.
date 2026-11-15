@@ -30,6 +30,7 @@ export interface Skill {
   category: SkillCategory;
   /** 0–100 evidence strength derived from how often / how well the skill appears */
   confidence: number;
+  userEdited?: boolean;
 }
 
 export interface ExtractedEducation {
@@ -127,7 +128,13 @@ export interface RoadmapPhase {
 
 export interface AIRecommendation {
   id: string;
-  type: "roadmap" | "technology" | "project" | "study_plan" | "interview" | "career_advice";
+  type:
+    | "roadmap"
+    | "technology"
+    | "project"
+    | "study_plan"
+    | "interview"
+    | "career_advice";
   title: string;
   body: string;
   priority: "high" | "medium" | "low";
