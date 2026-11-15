@@ -10,7 +10,7 @@ import ResumeAnalyzer from "./pages/ResumeAnalyzer";
 import CareerSelection from "./pages/CareerSelection";
 import SkillGap from "./pages/SkillGap";
 import CareerMatching from "./pages/CareerMatching";
-import Recommendations from "./pages/Recommendations";
+import Recommendations from "./pages/Recommendation";
 import Roadmap from "./pages/Roadmap";
 import JobAnalyzer from "./pages/JobAnalyzer";
 import Reports from "./pages/Reports";
