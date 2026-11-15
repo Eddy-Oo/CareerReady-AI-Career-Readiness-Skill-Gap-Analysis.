@@ -148,7 +148,7 @@ def extract_resume(text: str, filename: str) -> dict:
         clean = line.strip()
         if not clean:
             continue
-        if re.search(r"university|college|bachelor|master|degree|b\\.sc|m\\.sc", clean, re.I):
+        if re.search(r"university|college|bachelor|master|degree|b\.sc|m\.sc", clean, re.I):
             education.append({"details": clean[:240]})
         if re.search(r"intern|developer|engineer|manager|analyst|experience|worked", clean, re.I):
             experiences.append({"summary": clean[:300]})
