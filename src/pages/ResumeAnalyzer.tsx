@@ -1,0 +1,354 @@
+import { useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import {
+  UploadCloud,
+  FileText,
+  CheckCircle2,
+  GraduationCap,
+  Briefcase,
+  FolderKanban,
+  Cpu,
+  Users,
+  Sparkles,
+  AlertTriangle,
+} from "lucide-react";
+import { Card, SectionHeader, Badge, Button, EmptyState, Spinner } from "../components/ui";
+import { useAnalysisStore } from "../store";
+import { apiAnalyzeResume } from "../api/client";
+import { extractPdfText } from "../lib/extract";
+import { SKILL_CATEGORIES } from "../types";
+import type { SkillCategory } from "../types";
+
+const CATEGORY_TONE: Record<string, string> = {
+  "Programming Languages": "blue",
+  "Web Development": "violet",
+  "Mobile Development": "blue",
+  Database: "green",
+  "Data Science": "violet",
+  "Artificial Intelligence": "violet",
+  Cybersecurity: "red",
+  "Cloud Computing": "blue",
+  "Development Tools": "gray",
+  "Soft Skills": "green",
+};
+
+export default function ResumeAnalyzer() {
+  const [dragOver, setDragOver] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [phase, setPhase] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+  const { analysis, setAnalysis, setToast } = useAnalysisStore();
+  const navigate = useNavigate();
+
+  const runAnalysis = async (text: string, fileName: string) => {
+    setBusy(true);
+    setError(null);
+    setPhase("Extracting text from PDF…");
+    try {
+      setPhase("Running NLP skill extraction…");
+      const result = await apiAnalyzeResume(text, fileName);
+      setPhase("Organizing skills into categories…");
+      setAnalysis(result);
+      setToast(`Analysis complete — ${result.extractedSkills.length} skills extracted from ${fileName}`);
+      setBusy(false);
+      setPhase("");
+    } catch (e) {
+      setBusy(false);
+      setPhase("");
+      setError(e instanceof Error ? e.message : "Analysis failed. Please try another file.");
+    }
+  };
+
+  const handleFile = async (file: File) => {
+    setError(null);
+    if (!file.name.toLowerCase().endsWith(".pdf") && file.type !== "application/pdf") {
+      setError("Please upload a PDF file (.pdf).");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setError("File too large — maximum size is 10 MB.");
+      return;
+    }
+    setBusy(true);
+    setPhase("Extracting text from PDF…");
+    try {
+      const text = await extractPdfText(file);
+      await runAnalysis(text, file.name);
+    } catch (e) {
+      setBusy(false);
+      setPhase("");
+      setError(e instanceof Error ? e.message : "Could not read this PDF. Try a text-based resume.");
+    }
+  };
+
+  const grouped = SKILL_CATEGORIES.map((cat) => ({
+    cat,
+    skills: analysis?.extractedSkills.filter((s) => s.category === cat) ?? [],
+  })).filter((g) => g.skills.length > 0);
+
+  const softSkills = analysis?.softSkills ?? [];
+
+  return (
+    <div className="space-y-6 animate-fade-in">
+      <SectionHeader
+        title="AI Resume Analyzer"
+        subtitle="Upload a PDF resume — NLP extracts technical skills, soft skills, education and experience, organized into 10 skill categories."
+        icon={<UploadCloud className="h-5 w-5" />}
+        action={
+          <Badge tone="violet">
+            <Sparkles className="h-3 w-3" /> NLP Engine
+          </Badge>
+        }
+      />
+
+      {/* Upload zone */}
+      <div
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDragOver(true);
+        }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setDragOver(false);
+          const f = e.dataTransfer.files?.[0];
+          if (f) handleFile(f);
+        }}
+        onClick={() => !busy && inputRef.current?.click()}
+        className={`relative rounded-2xl border-2 border-dashed p-8 sm:p-12 text-center cursor-pointer transition-all duration-200 ${
+          dragOver
+            ? "border-brand-500 bg-brand-50 shadow-glow"
+            : "border-navy-200 bg-white hover:border-brand-400 hover:bg-brand-50/40"
+        }`}
+      >
+        <input
+          ref={inputRef}
+          type="file"
+          accept="application/pdf,.pdf"
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) handleFile(f);
+            e.target.value = "";
+          }}
+        />
+        {busy ? (
+          <div className="py-4">
+            <div className="mx-auto mb-3 flex h-14 w-14 animate-pulseRing items-center justify-center rounded-2xl bg-brand-100 text-brand-600">
+              <Cpu className="h-7 w-7 animate-pulse" />
+            </div>
+            <p className="text-sm font-bold text-navy-700">{phase || "Analyzing…"}</p>
+            <div className="mx-auto mt-3 h-1.5 w-56 overflow-hidden rounded-full bg-navy-100">
+              <div className="h-full w-1/2 rounded-full bg-gradient-to-r from-brand-500 to-violet-600 animate-shimmer bg-[length:200px_100%]" />
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-500 to-violet-600 text-white shadow-glow">
+              <UploadCloud className="h-7 w-7" />
+            </div>
+            <p className="text-base font-bold text-navy-800">
+              Drop your resume PDF here <span className="text-brand-600">or click to browse</span>
+            </p>
+            <p className="text-sm text-navy-400 mt-1.5">PDF only · up to 10 MB · stored securely on the backend</p>
+            <div className="mt-5 flex flex-wrap justify-center gap-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  runAnalysis(SAMPLE_TEXT, "Sample_Resume.pdf");
+                }}
+              >
+                Try sample resume
+              </Button>
+            </div>
+          </>
+        )}
+      </div>
+
+      {error && (
+        <div className="flex items-start gap-2.5 rounded-xl bg-danger-50 border border-red-100 px-4 py-3 text-sm font-medium text-red-700 animate-fade-in">
+          <AlertTriangle className="h-4.5 w-4.5 shrink-0 mt-0.5" /> {error}
+        </div>
+      )}
+
+      {!analysis && !busy && (
+        <Card>
+          <EmptyState
+            icon={<FileText className="h-6 w-6" />}
+            title="No resume analyzed yet"
+            description="Upload your PDF or run the sample to see extracted skills, education and experience."
+          />
+        </Card>
+      )}
+
+      {analysis && !busy && (
+        <>
+          {/* Summary header */}
+          <Card className="bg-gradient-to-r from-navy-800 to-navy-700 !border-0 text-white">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/10">
+                  <FileText className="h-6 w-6 text-brand-300" />
+                </div>
+                <div>
+                  <p className="font-bold">{analysis.fileName}</p>
+                  <p className="text-xs text-navy-300">
+                    Analyzed {new Date(analysis.analyzedAt).toLocaleString()} ·{" "}
+                    <span className={analysis.source === "backend" ? "text-success-400" : "text-brand-300"}>
+                      {analysis.source === "backend" ? "FastAPI NLP engine" : "Local fallback engine"}
+                    </span>
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-6 text-center">
+                {[
+                  [analysis.technicalSkills.length, "Technical"],
+                  [analysis.softSkills.length, "Soft"],
+                  [analysis.experiences.length, "Experience"],
+                  [analysis.projects.length, "Projects"],
+                ].map(([n, l]) => (
+                  <div key={String(l)}>
+                    <p className="text-2xl font-extrabold text-brand-300">{n}</p>
+                    <p className="text-[11px] text-navy-300 font-semibold">{l}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </Card>
+
+          {/* Skill categories */}
+          <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-5">
+            {grouped.map((g) => (
+              <Card key={g.cat} hover>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-bold text-navy-800 text-sm">{g.cat}</h3>
+                  <Badge tone={(CATEGORY_TONE[g.cat] ?? "gray") as "blue"}>{g.skills.length}</Badge>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {g.skills.map((s) => (
+                    <span
+                      key={s.name}
+                      title={`Detection confidence ${s.confidence}%`}
+                      className="inline-flex items-center gap-1 rounded-lg bg-navy-50 border border-navy-100 px-2.5 py-1 text-xs font-semibold text-navy-600 hover:border-brand-300 hover:text-brand-700 transition"
+                    >
+                      {s.name}
+                      <span className="text-[9px] font-bold text-navy-300">{s.confidence}%</span>
+                    </span>
+                  ))}
+                </div>
+              </Card>
+            ))}
+          </div>
+
+          {/* Education / Experience / Projects */}
+          <div className="grid lg:grid-cols-3 gap-5">
+            <Card>
+              <SectionHeader title="Education" icon={<GraduationCap className="h-5 w-5" />} />
+              {analysis.education.length === 0 ? (
+                <p className="text-sm text-navy-400">No education section detected.</p>
+              ) : (
+                <div className="space-y-4">
+                  {analysis.education.map((e, i) => (
+                    <div key={i} className="border-l-2 border-brand-500 pl-4">
+                      <p className="text-sm font-bold text-navy-800">{e.degree ?? "Degree"}</p>
+                      <p className="text-xs text-navy-500 mt-0.5">{e.institution}</p>
+                      {e.year && <p className="text-xs font-semibold text-brand-600 mt-1">{e.year}</p>}
+                      {e.details && <p className="text-xs text-navy-400 mt-1">{e.details}</p>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Card>
+
+            <Card>
+              <SectionHeader title="Work experience" icon={<Briefcase className="h-5 w-5" />} />
+              {analysis.experiences.length === 0 ? (
+                <p className="text-sm text-navy-400">No experience detected — add an experience section.</p>
+              ) : (
+                <div className="space-y-4">
+                  {analysis.experiences.map((x, i) => (
+                    <div key={i} className="border-l-2 border-violet-500 pl-4">
+                      <p className="text-sm font-bold text-navy-800">{x.title}</p>
+                      <p className="text-xs text-navy-500 mt-0.5">
+                        {x.organization}
+                        {x.duration && <span className="text-navy-300"> · {x.duration}</span>}
+                      </p>
+                      {x.summary && <p className="text-xs text-navy-400 mt-1.5 leading-relaxed">{x.summary}</p>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Card>
+
+            <Card>
+              <SectionHeader title="Projects" icon={<FolderKanban className="h-5 w-5" />} />
+              {analysis.projects.length === 0 ? (
+                <p className="text-sm text-navy-400">No projects detected — add a Projects section.</p>
+              ) : (
+                <ul className="space-y-2.5">
+                  {analysis.projects.map((p, i) => (
+                    <li key={i} className="flex items-start gap-2.5 rounded-xl bg-success-50 border border-success-100 px-3.5 py-2.5">
+                      <CheckCircle2 className="h-4 w-4 text-success-600 shrink-0 mt-0.5" />
+                      <span className="text-xs font-medium text-navy-600 leading-relaxed">{p}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Card>
+          </div>
+
+          {/* Soft skills */}
+          <Card>
+            <SectionHeader
+              title="Soft skills detected"
+              subtitle="Identified from phrasing and context in your resume"
+              icon={<Users className="h-5 w-5" />}
+            />
+            <div className="flex flex-wrap gap-2">
+              {softSkills.length === 0 ? (
+                <p className="text-sm text-navy-400">No soft skills detected — try adding a Soft Skills section.</p>
+              ) : (
+                softSkills.map((s) => (
+                  <span key={s.name} className="rounded-full bg-gradient-to-r from-brand-600 to-violet-600 px-3.5 py-1.5 text-xs font-bold text-white shadow-sm">
+                    {s.name}
+                  </span>
+                ))
+              )}
+            </div>
+            <div className="mt-5 flex justify-end gap-2.5 no-print">
+              <Button variant="secondary" onClick={() => navigate("/careers")}>
+                Continue to career selection →
+              </Button>
+            </div>
+          </Card>
+        </>
+      )}
+    </div>
+  );
+}
+
+const SAMPLE_TEXT = `JOHN DOE
+john.doe@university.edu | github.com/johndoe
+
+EDUCATION
+Bachelor of Science in Computer Science — Tech University, Graduation 2026
+
+EXPERIENCE
+Software Engineering Intern — CloudWorks (Summer 2025)
+- Built REST APIs with Python and Flask
+- Wrote unit tests with pytest and used Git for version control
+- Collaborated with an Agile team and communicated with stakeholders
+
+PROJECTS
+- Weatherly: React dashboard with charts and a Node.js backend
+- StudyBuddy: Android app built with Flutter and Firebase
+
+TECHNICAL SKILLS
+Python, Java, JavaScript, HTML, CSS, React, Node.js, MySQL, MongoDB, Git, Docker, Linux, Testing
+
+SOFT SKILLS
+Communication, Teamwork, Problem Solving, Creativity
+`;
