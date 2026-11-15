@@ -4,6 +4,7 @@ from .database import Base
 
 # JSON works with SQLite for local development and JSONB on Neon PostgreSQL.
 JSON_DATA = JSON().with_variant(JSONB, "postgresql")
+BIG_ID = BigInteger().with_variant(Integer, "sqlite")
 
 
 class User(Base):
@@ -33,7 +34,7 @@ class AnalysisHistory(Base):
 class Resume(Base):
     __tablename__ = "resumes"
 
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    id = Column(BIG_ID, primary_key=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
     filename = Column(String(255))
     resume_text = Column(Text)
@@ -44,7 +45,7 @@ class Resume(Base):
 class Skill(Base):
     __tablename__ = "skills"
 
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    id = Column(BIG_ID, primary_key=True, autoincrement=True)
     name = Column(String(150), unique=True, nullable=False)
     category = Column(String(100))
 
@@ -52,7 +53,7 @@ class Skill(Base):
 class UserSkill(Base):
     __tablename__ = "user_skills"
 
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    id = Column(BIG_ID, primary_key=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
     skill_id = Column(BigInteger, ForeignKey("skills.id", ondelete="CASCADE"), nullable=True)
     source = Column(String(50), default="resume")
@@ -63,7 +64,7 @@ class UserSkill(Base):
 class JobDescription(Base):
     __tablename__ = "job_descriptions"
 
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    id = Column(BIG_ID, primary_key=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
     title = Column(String(255))
     description = Column(Text, nullable=False)
@@ -74,7 +75,7 @@ class JobDescription(Base):
 class CareerMatch(Base):
     __tablename__ = "career_matches"
 
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    id = Column(BIG_ID, primary_key=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
     resume_id = Column(BigInteger, ForeignKey("resumes.id", ondelete="SET NULL"), nullable=True)
     career_id = Column(String(100), nullable=False)
@@ -86,7 +87,7 @@ class CareerMatch(Base):
 class SkillGapAnalysis(Base):
     __tablename__ = "skill_gap_analyses"
 
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    id = Column(BIG_ID, primary_key=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
     career_id = Column(String(100), nullable=False)
     matched_skills = Column(JSON_DATA, default=list)
@@ -99,7 +100,7 @@ class SkillGapAnalysis(Base):
 class Recommendation(Base):
     __tablename__ = "recommendations"
 
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    id = Column(BIG_ID, primary_key=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
     career_id = Column(String(100))
     recommendation_data = Column(JSON_DATA, default=list)
@@ -109,7 +110,7 @@ class Recommendation(Base):
 class LearningRoadmap(Base):
     __tablename__ = "learning_roadmaps"
 
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    id = Column(BIG_ID, primary_key=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
     career_id = Column(String(100), nullable=False)
     roadmap_data = Column(JSON_DATA, default=list)
