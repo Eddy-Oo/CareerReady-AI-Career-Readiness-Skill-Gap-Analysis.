@@ -5,8 +5,8 @@ import { useAuthStore } from "../store";
 import { Button, Field, Input } from "../components/ui";
 
 export default function Login() {
-  const [email, setEmail] = useState("amina.yusuf@university.edu");
-  const [password, setPassword] = useState("demo1234");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [show, setShow] = useState(false);
   const { login, loading, error, clearError } = useAuthStore();
   const navigate = useNavigate();
@@ -127,9 +127,6 @@ export default function Login() {
             <Link to="/register" className="font-bold text-brand-600 hover:text-brand-700">
               Create an account
             </Link>
-          </p>
-          <p className="text-center text-xs text-navy-300 mt-4">
-            Demo mode: any valid email + password (≥6 chars) works — backend fallback active.
           </p>
         </div>
       </div>
