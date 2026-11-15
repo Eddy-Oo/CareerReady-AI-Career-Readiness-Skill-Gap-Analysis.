@@ -1,5 +1,9 @@
-from sqlalchemy import Column, Integer, String, Text, DateTime, func
+from sqlalchemy import Column, Integer, BigInteger, String, Text, DateTime, ForeignKey, Numeric, JSON, func
+from sqlalchemy.dialects.postgresql import JSONB
 from .database import Base
+
+# JSON works with SQLite for local development and JSONB on Neon PostgreSQL.
+JSON_DATA = JSON().with_variant(JSONB, "postgresql")
 
 
 class User(Base):
@@ -19,7 +23,94 @@ class AnalysisHistory(Base):
     __tablename__ = "analysis_history"
 
     id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     analysis_type = Column(String(60), nullable=False)
     input_text = Column(Text, default="")
     result_json = Column(Text, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class Resume(Base):
+    __tablename__ = "resumes"
+
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
+    filename = Column(String(255))
+    resume_text = Column(Text)
+    extracted_data = Column(JSON_DATA, default=dict)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class Skill(Base):
+    __tablename__ = "skills"
+
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    name = Column(String(150), unique=True, nullable=False)
+    category = Column(String(100))
+
+
+class UserSkill(Base):
+    __tablename__ = "user_skills"
+
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
+    skill_id = Column(BigInteger, ForeignKey("skills.id", ondelete="CASCADE"), nullable=True)
+    source = Column(String(50), default="resume")
+    confidence = Column(Numeric(5, 2))
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class JobDescription(Base):
+    __tablename__ = "job_descriptions"
+
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
+    title = Column(String(255))
+    description = Column(Text, nullable=False)
+    extracted_data = Column(JSON_DATA, default=dict)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class CareerMatch(Base):
+    __tablename__ = "career_matches"
+
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
+    resume_id = Column(BigInteger, ForeignKey("resumes.id", ondelete="SET NULL"), nullable=True)
+    career_id = Column(String(100), nullable=False)
+    match_score = Column(Numeric(5, 2))
+    result_data = Column(JSON_DATA, default=dict)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class SkillGapAnalysis(Base):
+    __tablename__ = "skill_gap_analyses"
+
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
+    career_id = Column(String(100), nullable=False)
+    matched_skills = Column(JSON_DATA, default=list)
+    missing_skills = Column(JSON_DATA, default=list)
+    readiness_score = Column(Numeric(5, 2))
+    result_data = Column(JSON_DATA, default=dict)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class Recommendation(Base):
+    __tablename__ = "recommendations"
+
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
+    career_id = Column(String(100))
+    recommendation_data = Column(JSON_DATA, default=list)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class LearningRoadmap(Base):
+    __tablename__ = "learning_roadmaps"
+
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
+    career_id = Column(String(100), nullable=False)
+    roadmap_data = Column(JSON_DATA, default=list)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
