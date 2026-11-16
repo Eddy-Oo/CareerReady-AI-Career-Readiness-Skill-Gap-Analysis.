@@ -4,7 +4,7 @@
  */
 import type {
   AIRecommendation, AuthUser, Career, CareerMatch, JobDescriptionAnalysis,
-  ReadinessResult, ResumeAnalysis, RoadmapPhase, SkillGapResult, UserProfile,
+  ReadinessResult, ResumeAnalysis, RoadmapPhase, SkillGapResult, UserProfile, MLPrediction,
 } from "../types";
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, "");
@@ -102,4 +102,12 @@ export async function apiAnalyzeJobDescription(text: string, analysis: ResumeAna
   return apiFetch<JobDescriptionAnalysis>("/api/job/analyze", { method: "POST", body: JSON.stringify({
     description: text, resume_skills: analysis.extractedSkills.map(s => s.name),
   }) });
+}
+
+
+export async function apiPredictCareerRole(resumeText: string): Promise<MLPrediction> {
+  return apiFetch<MLPrediction>("/api/ml/predict", {
+    method: "POST",
+    body: JSON.stringify({ resume_text: resumeText }),
+  });
 }
