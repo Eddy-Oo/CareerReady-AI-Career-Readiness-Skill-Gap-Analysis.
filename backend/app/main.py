@@ -1,6 +1,7 @@
-import re
 import spacy
 from spacy.matcher import PhraseMatcher
+import joblib
+from pathlib import Path
 import hashlib
 import json
 import os
@@ -10,7 +11,7 @@ import uuid
 from datetime import datetime, timezone
 from urllib.parse import quote_plus
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Body, Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
@@ -96,6 +97,22 @@ for skill in ALL_SKILLS:
     patterns = [nlp.make_doc(phrase) for phrase in phrases]
     SKILL_MATCHER.add(skill, patterns)
 
+# Machine Learning Model
+
+MODEL_PATH = (
+    Path(__file__).resolve().parent.parent
+    / "ml"
+    / "artifacts"
+    / "career_role_model.joblib"
+)
+
+try:
+    ROLE_MODEL = joblib.load(MODEL_PATH)
+    print("ML career prediction model loaded successfully!")
+
+except Exception as error:
+    ROLE_MODEL = None
+    print("ML model could not be loaded:", error)
 
 app = FastAPI(title="CareerReady AI API", version="1.1.0")
 cors_origins = [item.strip() for item in os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",") if item.strip()]
@@ -441,3 +458,148 @@ def job_analyze(payload: JobRequest, db: Session = Depends(get_db), user: User =
     save_history(db, user.id, "job-description", payload.description, result)
     db.commit()
     return result
+
+# ------------------------ ML Career Prediction ------------------------
+
+from fastapi import Body
+
+
+@app.post("/api/ml/predict")
+def predict_career_role(
+    resume_text: str = Body(..., embed=True),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    if ROLE_MODEL is None:
+        raise HTTPException(
+            status_code=503,
+            detail="ML prediction model is not available."
+        )
+
+    if not resume_text or not resume_text.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="Resume text cannot be empty."
+        )
+
+    if len(resume_text) > 20000:
+        raise HTTPException(
+            status_code=400,
+            detail="Resume text is too long."
+        )
+
+    # Predict the most suitable job role.
+    prediction = ROLE_MODEL.predict([resume_text])[0]
+
+    # Get prediction probabilities.
+    probabilities = ROLE_MODEL.predict_proba([resume_text])[0]
+
+    # Sort the three highest predictions.
+    classes = ROLE_MODEL.classes_
+
+    ranked_predictions = sorted(
+        zip(classes, probabilities),
+        key=lambda item: item[1],
+        reverse=True
+    )[:3]
+
+    top_roles = [
+        {
+            "jobRole": role,
+            "probability": round(float(probability) * 100, 2)
+        }
+        for role, probability in ranked_predictions
+    ]
+
+    result = {
+        "predictedJobRole": prediction,
+        "topPredictions": top_roles,
+        "model": "TF-IDF + Logistic Regression",
+        "datasetType": "synthetic",
+        "disclaimer": (
+            "Experimental prediction based on a synthetic training dataset. "
+            "Probabilities are not calibrated confidence scores."
+        )
+    }
+
+    # Save prediction history.
+    save_history(
+        db,
+        user.id,
+        "ml-career-prediction",
+        resume_text,
+        result
+    )
+
+    db.commit()
+
+    return result
+
+
+# ------------------------ ML Career Prediction ------------------------
+
+@app.post("/api/ml/predict")
+def predict_career_role(
+    resume_text: str = Body(..., embed=True),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    if ROLE_MODEL is None:
+        raise HTTPException(
+            status_code=503,
+            detail="ML prediction model is not available."
+        )
+
+    if not resume_text or not resume_text.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="Resume text cannot be empty."
+        )
+
+    if len(resume_text) > 20000:
+        raise HTTPException(
+            status_code=400,
+            detail="Resume text is too long."
+        )
+
+    prediction = ROLE_MODEL.predict([resume_text])[0]
+
+    probabilities = ROLE_MODEL.predict_proba([resume_text])[0]
+
+    classes = ROLE_MODEL.classes_
+
+    ranked_predictions = sorted(
+        zip(classes, probabilities),
+        key=lambda item: item[1],
+        reverse=True
+    )[:3]
+
+    top_roles = [
+        {
+            "jobRole": role,
+            "probability": round(float(probability) * 100, 2)
+        }
+        for role, probability in ranked_predictions
+    ]
+
+    result = {
+        "predictedJobRole": prediction,
+        "topPredictions": top_roles,
+        "model": "TF-IDF + Logistic Regression",
+        "datasetType": "synthetic",
+        "disclaimer": (
+            "Experimental prediction based on a synthetic training dataset. "
+            "Probabilities are not calibrated confidence scores."
+        )
+    }
+
+    save_history(
+        db,
+        user.id,
+        "ml-career-prediction",
+        resume_text,
+        result
+    )
+
+    return result
+
