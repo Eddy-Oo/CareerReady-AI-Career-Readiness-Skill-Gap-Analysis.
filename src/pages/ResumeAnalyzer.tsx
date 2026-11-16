@@ -12,6 +12,7 @@ import {
   Users,
   Sparkles,
   AlertTriangle,
+  BrainCircuit,
 } from "lucide-react";
 import {
   Card,
@@ -22,7 +23,7 @@ import {
   Spinner,
 } from "../components/ui";
 import { useAnalysisStore } from "../store";
-import { apiAnalyzeResume } from "../api/client";
+import { apiAnalyzeResume, apiPredictCareerRole } from "../api/client";
 import { extractResumeText } from "../lib/extract";
 import { SKILL_CATEGORIES } from "../types";
 import type { SkillCategory } from "../types";
@@ -46,6 +47,9 @@ export default function ResumeAnalyzer() {
   const [error, setError] = useState<string | null>(null);
   const [phase, setPhase] = useState("");
   const [editing, setEditing] = useState(false);
+  const [predicting, setPredicting] = useState(false);
+  const [predictionError, setPredictionError] = useState<string | null>(null);
+  const [prediction, setPrediction] = useState<Awaited<ReturnType<typeof apiPredictCareerRole>> | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const { analysis, setAnalysis, setToast } = useAnalysisStore();
   const navigate = useNavigate();
@@ -112,6 +116,24 @@ export default function ResumeAnalyzer() {
           ? error.message
           : "Could not read this résumé. Try a clearer image or PDF."
       );
+    }
+  };
+
+
+  const handleCareerPrediction = async () => {
+    if (!analysis?.rawTextPreview?.trim() || predicting) return;
+    setPredicting(true);
+    setPredictionError(null);
+    setPrediction(null);
+    try {
+      const result = await apiPredictCareerRole(analysis.rawTextPreview);
+      setPrediction(result);
+    } catch (e) {
+      setPredictionError(
+        e instanceof Error ? e.message : "Career prediction failed. Please try again."
+      );
+    } finally {
+      setPredicting(false);
     }
   };
 
@@ -280,6 +302,52 @@ export default function ResumeAnalyzer() {
                 ))}
               </div>
             </div>
+          </Card>
+
+
+          {/* ML Career Prediction */}
+          <Card>
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-start gap-3">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-violet-700">
+                  <BrainCircuit className="h-6 w-6" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-navy-800">ML Career Prediction</h3>
+                  <p className="mt-1 text-sm text-navy-500">
+                    Predict the top career-role categories using your analyzed resume and our trained machine learning model.
+                  </p>
+                </div>
+              </div>
+              <Button onClick={handleCareerPrediction} disabled={predicting || !analysis.rawTextPreview.trim()}>
+                {predicting ? "Predicting…" : "Predict My Career Role"}
+              </Button>
+            </div>
+            {predictionError && (
+              <p role="alert" className="mt-4 rounded-lg border border-red-100 bg-danger-50 px-3 py-2 text-sm text-red-700">
+                {predictionError}
+              </p>
+            )}
+            {prediction && (
+              <div className="mt-5 border-t border-navy-100 pt-4">
+                <p className="text-xs font-bold uppercase tracking-wide text-navy-400">Predicted career role</p>
+                <p className="mt-1 text-xl font-extrabold text-violet-700">{prediction.predictedJobRole}</p>
+                <div className="mt-4 space-y-3">
+                  {prediction.topPredictions.map((item) => (
+                    <div key={item.jobRole}>
+                      <div className="mb-1 flex justify-between gap-3 text-sm">
+                        <span className="font-semibold text-navy-700">{item.jobRole}</span>
+                        <span className="font-bold text-navy-600">{item.probability.toFixed(2)}%</span>
+                      </div>
+                      <div className="h-2 overflow-hidden rounded-full bg-navy-100">
+                        <div className="h-full rounded-full bg-violet-500" style={{ width: `${Math.max(0, Math.min(100, item.probability))}%` }} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <p className="mt-4 text-xs leading-relaxed text-navy-400">{prediction.disclaimer}</p>
+              </div>
+            )}
           </Card>
 
           {/* Skill categories */}
