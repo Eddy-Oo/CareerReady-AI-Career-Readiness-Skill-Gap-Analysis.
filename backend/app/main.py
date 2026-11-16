@@ -1,3 +1,6 @@
+import re
+import spacy
+from spacy.matcher import PhraseMatcher
 import hashlib
 import json
 import os
@@ -55,6 +58,44 @@ CATEGORY_MAP = {
 }
 SOFT_SKILLS = {skill for career in CAREERS for skill in career["soft"]}
 ALL_SKILLS = sorted({skill for career in CAREERS for skill in career["technical"] + career["soft"]}, key=len, reverse=True)
+
+
+# ------------------------ NLP Skill Extraction ------------------------
+
+# Create a lightweight English NLP pipeline.
+# No large pretrained model download is required.
+nlp = spacy.blank("en")
+
+# Match skill names without considering uppercase/lowercase.
+SKILL_MATCHER = PhraseMatcher(nlp.vocab, attr="LOWER")
+
+# Common skill abbreviations and alternative names.
+SKILL_ALIASES = {
+    "JS": "JavaScript",
+    "Node JS": "Node.js",
+    "NodeJS": "Node.js",
+    "REST APIs": "REST API",
+    "RESTful API": "REST API",
+    "ML": "Machine Learning",
+    "Natural Language Processing": "NLP",
+    "GenAI": "Generative AI",
+    "Postgres": "PostgreSQL",
+    "Amazon Web Services": "AWS",
+    "C plus plus": "C++",
+    "CI CD": "CI/CD",
+}
+
+# Build a collection of phrases for each canonical skill.
+for skill in ALL_SKILLS:
+    phrases = [skill]
+
+    for alias, canonical in SKILL_ALIASES.items():
+        if canonical == skill:
+            phrases.append(alias)
+
+    patterns = [nlp.make_doc(phrase) for phrase in phrases]
+    SKILL_MATCHER.add(skill, patterns)
+
 
 app = FastAPI(title="CareerReady AI API", version="1.1.0")
 cors_origins = [item.strip() for item in os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",") if item.strip()]
@@ -132,7 +173,94 @@ def save_user_skills(db: Session, user_id: int, extracted: list[dict], source: s
     db.commit()
 
 
+
 def extract_resume(text: str, filename: str) -> dict:
+    # Process resume text using spaCy.
+    doc = nlp(text or "")
+
+    # Find matching skills.
+    matches = SKILL_MATCHER(doc)
+
+    # Count how many times each skill appears.
+    skill_counts = {}
+
+    for match_id, start, end in matches:
+        skill_name = nlp.vocab.strings[match_id]
+        skill_counts[skill_name] = skill_counts.get(skill_name, 0) + 1
+
+    # Build the extracted skill list.
+    extracted = []
+
+    for skill in ALL_SKILLS:
+        if skill in skill_counts:
+            count = skill_counts[skill]
+
+            extracted.append({
+                "name": skill,
+                "category": CATEGORY_MAP.get(
+                    skill,
+                    "Soft Skills" if skill in SOFT_SKILLS else "Development Tools"
+                ),
+                "confidence": min(98, 65 + count * 7)
+            })
+
+    # Separate technical and soft skills.
+    technical = [
+        skill for skill in extracted
+        if skill["name"] not in SOFT_SKILLS
+    ]
+
+    soft = [
+        skill for skill in extracted
+        if skill["name"] in SOFT_SKILLS
+    ]
+
+    # Extract education, experience, and projects.
+    education = []
+    experiences = []
+    projects = []
+
+    for line in text.splitlines():
+        clean = line.strip()
+
+        if not clean:
+            continue
+
+        if re.search(
+            r"university|college|bachelor|master|degree|b\.sc|m\.sc",
+            clean,
+            re.I
+        ):
+            education.append({"details": clean[:240]})
+
+        if re.search(
+            r"intern|developer|engineer|manager|analyst|experience|worked",
+            clean,
+            re.I
+        ):
+            experiences.append({"summary": clean[:300]})
+
+        if re.search(
+            r"project|built|developed|created",
+            clean,
+            re.I
+        ):
+            projects.append(clean[:240])
+
+    return {
+        "id": str(uuid.uuid4()),
+        "fileName": filename,
+        "analyzedAt": datetime.now(timezone.utc).isoformat(),
+        "extractedSkills": extracted,
+        "technicalSkills": technical,
+        "softSkills": soft,
+        "education": education[:5],
+        "experiences": experiences[:5],
+        "projects": projects[:8],
+        "keywords": [skill["name"] for skill in extracted],
+        "rawTextPreview": text[:1200],
+        "source": "backend"
+    }
     extracted = []
     for skill in ALL_SKILLS:
         if contains_term(text, skill):
