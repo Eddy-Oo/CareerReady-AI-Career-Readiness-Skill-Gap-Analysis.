@@ -18,3 +18,11 @@ export interface JobDescriptionAnalysis { id: string; title: string; requiredSki
 export interface UserProfile { fullName: string; email: string; university: string; degree: string; graduationYear: string; careerInterests: string[]; technicalSkills: string[]; experienceLevel: "beginner" | "intermediate" | "advanced"; bio?: string; avatarColor?: string; }
 export interface AuthUser { id: string; email: string; fullName: string; accessToken: string; tokenType: "bearer"; }
 export interface AnalysisRecord { id: string; date: string; careerTitle: string; readiness: number; matched: number; missing: number; fileName: string; }
+
+export interface MLPrediction {
+  predictedJobRole: string;
+  topPredictions: { jobRole: string; probability: number }[];
+  model: string;
+  datasetType: string;
+  disclaimer: string;
+}
