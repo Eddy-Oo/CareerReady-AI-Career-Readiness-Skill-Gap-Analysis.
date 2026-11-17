@@ -6,7 +6,7 @@ import { CareerMatchChart } from "../components/charts";
 import { useAnalysis } from "../hooks/useAnalysis";
 import { getCareer, CAREERS } from "../data/careers";
 import { useAnalysisStore, useAuthStore } from "../store";
-import { apiMatchCareers } from "../api/client";
+import { apiMatchCareers, apiSkillGap } from "../api/client";
 
 export default function CareerMatching() {
   const { matches, analysis, career, profile } = useAnalysis();
@@ -21,6 +21,19 @@ export default function CareerMatching() {
     });
   }, [analysis, user, profile, setToast]);
   const selectCareer = useAnalysisStore((s) => s.selectCareer);
+
+  const handleSetTarget = (careerId: string, careerTitle: string) => {
+    selectCareer(careerId);
+    setToast(`Target career set to ${careerTitle}`);
+
+    const targetCareer = getCareer(careerId);
+    if (targetCareer && analysis) {
+      apiSkillGap({ career: targetCareer, analysis, userProfile: profile }).catch((error) => {
+        console.error("TARGET CAREER SAVE ERROR:", error);
+        setToast(error instanceof Error ? `Target selected, but could not save it: ${error.message}` : "Target selected, but could not save it.");
+      });
+    }
+  };
 
   if (!analysis) {
     return (
@@ -98,10 +111,7 @@ export default function CareerMatching() {
                 size="md"
                 type="button"
                 aria-pressed={career?.id === top5[0].careerId}
-                onClick={() => {
-                  selectCareer(top5[0].careerId);
-                  setToast(`Target career set to ${top5[0].careerTitle}`);
-                }}
+                onClick={() => handleSetTarget(top5[0].careerId, top5[0].careerTitle)}
               >
                 <Target className="h-4 w-4" />
                 {career?.id === top5[0].careerId ? "Target selected" : "Set as target"}
@@ -156,10 +166,7 @@ export default function CareerMatching() {
                   type="button"
                   className={`min-h-11 w-full border-2 ${isTarget ? "!border-success-500 !bg-success-50 !text-success-800 hover:!bg-success-100" : "!border-brand-700 !bg-white !text-brand-800 hover:!bg-brand-50"}`}
                   aria-pressed={isTarget}
-                  onClick={() => {
-                    selectCareer(m.careerId);
-                    setToast(`Target career set to ${m.careerTitle}`);
-                  }}
+                  onClick={() => handleSetTarget(m.careerId, m.careerTitle)}
                 >
                   {isTarget ? <CheckCircle2 className="h-4 w-4" /> : <Target className="h-4 w-4" />}
                   {isTarget ? "Target selected" : "Set as target"}
