@@ -21,7 +21,6 @@ export default function CareerMatching() {
     });
   }, [analysis?.id, user?.id, setToast]);
   const selectCareer = useAnalysisStore((s) => s.selectCareer);
-  const setToast = useAnalysisStoreSafe();
 
   if (!analysis) {
     return (
