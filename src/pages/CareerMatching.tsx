@@ -106,14 +106,16 @@ export default function CareerMatching() {
                 </div>
               </div>
               <Button
-                variant="secondary"
-                className="mt-3 min-h-11 w-full !border-2 !border-white/70 !bg-transparent !text-white shadow-md hover:!bg-white hover:!text-navy-900"
+                variant="primary"
+                className={`mt-3 min-h-11 w-full border-2 font-bold shadow-md ${career?.id === top5[0].careerId
+                  ? "!border-success-300 !bg-success-600 !text-white hover:!bg-success-700"
+                  : "!border-white !bg-white !text-navy-900 hover:!border-brand-200 hover:!bg-brand-50"}`}
                 size="md"
                 type="button"
                 aria-pressed={career?.id === top5[0].careerId}
                 onClick={() => handleSetTarget(top5[0].careerId, top5[0].careerTitle)}
               >
-                <Target className="h-4 w-4" />
+                {career?.id === top5[0].careerId ? <CheckCircle2 className="h-4 w-4" /> : <Target className="h-4 w-4" />}
                 {career?.id === top5[0].careerId ? "Target selected" : "Set as target"}
               </Button>
             </div>
@@ -161,10 +163,12 @@ export default function CareerMatching() {
               </div>
               <div className="mt-4 grid gap-2">
                 <Button
-                  variant={isTarget ? "secondary" : "primary"}
+                  variant="primary"
                   size="md"
                   type="button"
-                  className={`min-h-11 w-full border-2 ${isTarget ? "!border-success-500 !bg-success-50 !text-success-800 hover:!bg-success-100" : "!border-brand-700 !bg-white !text-brand-800 hover:!bg-brand-50"}`}
+                  className={`min-h-11 w-full border-2 font-bold shadow-sm ${isTarget
+                    ? "!border-success-700 !bg-success-600 !text-white hover:!bg-success-700"
+                    : "!border-brand-700 !bg-brand-700 !text-white hover:!border-brand-800 hover:!bg-brand-800"}`}
                   aria-pressed={isTarget}
                   onClick={() => handleSetTarget(m.careerId, m.careerTitle)}
                 >
