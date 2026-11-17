@@ -1,12 +1,22 @@
 {
     "accuracy": 1.0,
-    "training_records": 400,
-    "testing_records": 100,
+    "training_records": 1200,
+    "testing_records": 300,
     "job_roles": [
+        "AI Engineer",
         "Backend Developer",
+        "Business Analyst",
+        "Cloud Engineer",
+        "Cybersecurity Analyst",
         "Data Analyst",
+        "Data Engineer",
         "Data Scientist",
+        "DevOps Engineer",
+        "Digital Marketing Specialist",
+        "Machine Learning Engineer",
         "Mobile Developer",
+        "QA / Test Engineer",
+        "UI/UX Designer",
         "Web Developer"
     ],
     "dataset_type": "synthetic"

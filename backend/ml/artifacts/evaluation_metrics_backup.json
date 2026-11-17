@@ -1,0 +1,13 @@
+{
+    "accuracy": 1.0,
+    "training_records": 400,
+    "testing_records": 100,
+    "job_roles": [
+        "Backend Developer",
+        "Data Analyst",
+        "Data Scientist",
+        "Mobile Developer",
+        "Web Developer"
+    ],
+    "dataset_type": "synthetic"
+}
