@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import {
   GitCompareArrows,
@@ -13,10 +14,19 @@ import { Card, SectionHeader, Badge, ProgressBar, EmptyState, Button } from "../
 import { SkillGapChart, ReadinessGauge, ReadinessBreakdownChart, ExistingVsRequiredChart } from "../components/charts";
 import { useAnalysis } from "../hooks/useAnalysis";
 import { useAnalysisStore } from "../store";
+import { apiSkillGap } from "../api/client";
 
 export default function SkillGapAnalysis() {
   const { career, gap, readiness, analysis } = useAnalysis();
   const setToast = useAnalysisStore((s) => s.setToast);
+
+  useEffect(() => {
+    if (!career || !gap || !readiness || !analysis) return;
+    apiSkillGap({ career, analysis }).catch((error) => {
+      console.error("SKILL GAP SAVE ERROR:", error);
+      setToast(error instanceof Error ? `Could not save skill-gap analysis: ${error.message}` : "Could not save skill-gap analysis.");
+    });
+  }, [career?.id, analysis?.id, setToast]);
 
   if (!career || !gap || !readiness || !analysis) {
     return (
