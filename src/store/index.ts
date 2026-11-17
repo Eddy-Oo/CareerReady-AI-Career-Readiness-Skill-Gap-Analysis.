@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { AnalysisRecord, AuthUser, UserProfile } from "../types";
 import { DEFAULT_PROFILE } from "../data/sample";
-import type { ResumeAnalysis } from "../types";
+import type { ResumeAnalysis, MLPrediction } from "../types";
 import { apiGetAccountData, apiLogin, apiRegister } from "../api/client";
 
 interface AuthState {
@@ -83,6 +83,7 @@ export const useAuthStore = create<AuthState>()(
             const savedData = await apiGetAccountData();
             const analysisStore = useAnalysisStore.getState();
             analysisStore.setAnalysis(savedData.analysis);
+            analysisStore.setPrediction(savedData.prediction);
             analysisStore.selectCareer(savedData.selectedCareerId);
           } catch (restoreError) {
             console.error("ACCOUNT DATA RESTORE ERROR:", restoreError);
@@ -109,11 +110,13 @@ export const useAuthStore = create<AuthState>()(
 interface AnalysisState {
   ownerUserId: string | null;
   analysis: ResumeAnalysis | null;
+  prediction: MLPrediction | null;
   selectedCareerId: string | null;
   history: AnalysisRecord[];
   roadmapProgress: Record<string, boolean>;
   toast: string | null;
   setAnalysis: (a: ResumeAnalysis | null) => void;
+  setPrediction: (p: MLPrediction | null) => void;
   selectCareer: (id: string | null) => void;
   addHistory: (rec: AnalysisRecord) => void;
   toggleRoadmapItem: (phaseId: string) => void;
@@ -126,11 +129,13 @@ export const useAnalysisStore = create<AnalysisState>()(
     (set, get) => ({
       ownerUserId: null,
       analysis: null,
+      prediction: null,
       selectedCareerId: null,
       history: [],
       roadmapProgress: {},
       toast: null,
       setAnalysis: (a) => set({ analysis: a }),
+      setPrediction: (p) => set({ prediction: p }),
       selectCareer: (id) => set({ selectedCareerId: id }),
       addHistory: (rec) => set({ history: [rec, ...get().history].slice(0, 20) }),
       toggleRoadmapItem: (phaseId) =>
@@ -140,6 +145,7 @@ export const useAnalysisStore = create<AnalysisState>()(
         set({
           ownerUserId: userId,
           analysis: null,
+          prediction: null,
           selectedCareerId: null,
           history: [],
           roadmapProgress: {},
