@@ -1,3 +1,6 @@
+import os
+from dotenv import load_dotenv
+from openai import OpenAI
 import spacy
 from spacy.matcher import PhraseMatcher
 import joblib
@@ -8,8 +11,20 @@ import os
 import re
 import secrets
 import uuid
+
 from datetime import datetime, timezone
 from urllib.parse import quote_plus
+
+
+from dotenv import load_dotenv
+from openai import OpenAI
+
+load_dotenv()
+
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4.1-mini")
+
+ai_client = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
 
 from fastapi import Body, Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -24,6 +39,7 @@ from .models import (
     Resume, Skill, SkillGapAnalysis, User, UserSkill,
 )
 from .schemas import (
+    CareerAdviceRequest,
     EmailRequest, JobRequest, LoginRequest, MatchingRequest, RecommendationRequest,
     RegisterRequest, ResumeRequest, RoadmapRequest, SkillGapRequest,
 )
@@ -535,71 +551,95 @@ def predict_career_role(
 
     return result
 
+# ------------------------ AI Career Advisor ------------------------
 
-# ------------------------ ML Career Prediction ------------------------
-
-@app.post("/api/ml/predict")
-def predict_career_role(
-    resume_text: str = Body(..., embed=True),
+@app.post("/api/ai/career-advice")
+def generate_career_advice(
+    payload: CareerAdviceRequest,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user)
 ):
-    if ROLE_MODEL is None:
+    if ai_client is None:
         raise HTTPException(
             status_code=503,
-            detail="ML prediction model is not available."
+            detail="AI service is not configured."
         )
 
-    if not resume_text or not resume_text.strip():
+    if not payload.resume_text.strip():
         raise HTTPException(
             status_code=400,
             detail="Resume text cannot be empty."
         )
 
-    if len(resume_text) > 20000:
+    if len(payload.resume_text) > 20000:
         raise HTTPException(
             status_code=400,
             detail="Resume text is too long."
         )
 
-    prediction = ROLE_MODEL.predict([resume_text])[0]
+    instructions = """
+    You are a practical career advisor.
+    Give clear, personalized and realistic career advice.
+    Explain why the predicted career may be suitable.
+    Discuss the user's existing skills and missing skills.
+    Suggest practical projects and a learning plan.
+    Do not invent qualifications or experience.
+    Treat the ML career prediction as an experimental suggestion,
+    not a guaranteed assessment of career suitability.
+    Use simple, student-friendly language.
+    """
 
-    probabilities = ROLE_MODEL.predict_proba([resume_text])[0]
+    prompt = f"""
+    Resume:
+    {payload.resume_text}
 
-    classes = ROLE_MODEL.classes_
+    Predicted career:
+    {payload.predicted_career}
 
-    ranked_predictions = sorted(
-        zip(classes, probabilities),
-        key=lambda item: item[1],
-        reverse=True
-    )[:3]
+    Existing skills:
+    {", ".join(payload.existing_skills)}
 
-    top_roles = [
-        {
-            "jobRole": role,
-            "probability": round(float(probability) * 100, 2)
-        }
-        for role, probability in ranked_predictions
-    ]
+    Missing skills:
+    {", ".join(payload.missing_skills)}
+
+    Please provide personalized career advice.
+    """
+
+    try:
+        response = ai_client.responses.create(
+            model=OPENAI_MODEL,
+            instructions=instructions,
+            input=prompt
+        )
+
+        advice = response.output_text.strip()
+
+    except Exception:
+        raise HTTPException(
+            status_code=502,
+            detail="Unable to generate AI career advice. Please try again."
+        )
+
+    if not advice:
+        raise HTTPException(
+            status_code=502,
+            detail="AI returned an empty response."
+        )
 
     result = {
-        "predictedJobRole": prediction,
-        "topPredictions": top_roles,
-        "model": "TF-IDF + Logistic Regression",
-        "datasetType": "synthetic",
-        "disclaimer": (
-            "Experimental prediction based on a synthetic training dataset. "
-            "Probabilities are not calibrated confidence scores."
-        )
+        "predictedCareer": payload.predicted_career,
+        "advice": advice,
+        "existingSkills": payload.existing_skills,
+        "missingSkills": payload.missing_skills,
+        "model": OPENAI_MODEL
     }
 
     save_history(
         db,
         user.id,
-        "ml-career-prediction",
-        resume_text,
+        "ai-career-advice",
+        payload.resume_text,
         result
     )
 
     return result
-

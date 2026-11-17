@@ -54,3 +54,9 @@ class RoadmapRequest(BaseModel):
 class JobRequest(BaseModel):
     description: str = Field(min_length=1)
     resume_skills: list[str] = []
+
+class CareerAdviceRequest(BaseModel):
+    resume_text: str = Field(min_length=1)
+    predicted_career: str = Field(min_length=1)
+    existing_skills: list[str] = []
+    missing_skills: list[str] = []
