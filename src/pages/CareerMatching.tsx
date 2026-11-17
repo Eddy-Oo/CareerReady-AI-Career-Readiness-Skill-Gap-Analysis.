@@ -1,12 +1,25 @@
+import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import { BarChart3, Sparkles, ArrowRight, Target, CheckCircle2, Info } from "lucide-react";
 import { Card, SectionHeader, Badge, Button, EmptyState, ProgressBar } from "../components/ui";
 import { CareerMatchChart } from "../components/charts";
 import { useAnalysis } from "../hooks/useAnalysis";
-import { getCareer } from "../data/careers";
+import { getCareer, CAREERS } from "../data/careers";
+import { useAnalysisStore, useAuthStore } from "../store";
+import { apiMatchCareers } from "../api/client";
 
 export default function CareerMatching() {
-  const { matches, analysis, career } = useAnalysis();
+  const { matches, analysis, career, profile } = useAnalysis();
+  const setToast = useAnalysisStore((s) => s.setToast);
+  const user = useAuthStore((s) => s.user);
+
+  useEffect(() => {
+    if (!analysis || !user) return;
+    apiMatchCareers({ analysis, userProfile: profile, careers: CAREERS }).catch((error) => {
+      console.error("CAREER MATCH SAVE ERROR:", error);
+      setToast(error instanceof Error ? `Could not save career matches: ${error.message}` : "Could not save career matches.");
+    });
+  }, [analysis?.id, user?.id, setToast]);
   const selectCareer = useAnalysisStore((s) => s.selectCareer);
   const setToast = useAnalysisStoreSafe();
 
