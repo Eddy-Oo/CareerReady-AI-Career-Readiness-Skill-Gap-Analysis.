@@ -2,7 +2,13 @@ import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./careerready.db")
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+# Render must use the configured Neon/PostgreSQL database, not an ephemeral SQLite file.
+if not DATABASE_URL and os.getenv("RENDER", "").lower() == "true":
+    raise RuntimeError("DATABASE_URL is required on Render. Configure your Neon PostgreSQL connection string.")
+
+DATABASE_URL = DATABASE_URL or "sqlite:///./careerready.db"
 
 # Render/Neon connection strings may use postgres:// or postgresql://.
 if DATABASE_URL.startswith("postgres://"):
