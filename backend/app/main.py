@@ -147,7 +147,15 @@ except Exception as error:
 
 app = FastAPI(title="CareerReady AI API", version="1.1.0")
 cors_origins = [item.strip() for item in os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",") if item.strip()]
-app.add_middleware(CORSMiddleware, allow_origins=cors_origins or ["http://localhost:5173"], allow_credentials=False, allow_methods=["*"], allow_headers=["*"])
+# The frontend uses bearer tokens (not cookies), so wildcard origins are safe here.
+# This avoids browser NetworkError when a production frontend domain is not listed in CORS_ORIGINS.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Use a long random SECRET_KEY in Render environment variables.
 SECRET_KEY = os.getenv("SECRET_KEY", "development-only-change-this-secret")
