@@ -19,7 +19,7 @@ export default function CareerMatching() {
       console.error("CAREER MATCH SAVE ERROR:", error);
       setToast(error instanceof Error ? `Could not save career matches: ${error.message}` : "Could not save career matches.");
     });
-  }, [analysis?.id, user?.id, setToast]);
+  }, [analysis, user, profile, setToast]);
   const selectCareer = useAnalysisStore((s) => s.selectCareer);
 
   if (!analysis) {
