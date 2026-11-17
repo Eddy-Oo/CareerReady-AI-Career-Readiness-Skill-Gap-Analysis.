@@ -96,12 +96,12 @@ export default function SkillGapAnalysis() {
                 {s}
               </span>
             ))}
+            {gap.technicalMatched.length > 0 && (
+              <p className="w-full mt-3 pt-3 border-t border-success-200 text-xs text-navy-500 break-words">
+                Technical: {gap.technicalMatched.join(", ")}
+              </p>
+            )}
           </div>
-          {gap.technicalMatched.length > 0 && (
-            <p className="mt-4 text-xs text-navy-400 border-t border-navy-100 pt-3">
-              Technical: {gap.technicalMatched.join(", ")}
-            </p>
-          )}
         </Card>
 
         <Card className="!border-red-100 min-w-0 h-full overflow-hidden flex flex-col">
@@ -124,12 +124,12 @@ export default function SkillGapAnalysis() {
                 {s}
               </span>
             ))}
+            {gap.technicalMissing.length > 0 && (
+              <p className="w-full mt-3 pt-3 border-t border-red-200 text-xs text-navy-500 break-words">
+                Focus first: {gap.technicalMissing.slice(0, 4).join(", ")}
+              </p>
+            )}
           </div>
-          {gap.technicalMissing.length > 0 && (
-            <p className="mt-4 text-xs text-navy-400 border-t border-navy-100 pt-3">
-              Focus first: {gap.technicalMissing.slice(0, 4).join(", ")}
-            </p>
-          )}
         </Card>
 
         <Card className="!border-warning-100 min-w-0 h-full overflow-hidden flex flex-col">
@@ -143,21 +143,21 @@ export default function SkillGapAnalysis() {
             </div>
             <span className="ml-auto text-2xl font-extrabold text-warning-600">{gap.weakSkills.length}</span>
           </div>
-          {gap.weakSkills.length === 0 ? (
-            <p className="text-sm text-navy-400">
-              No weak-evidence skills detected — all matched skills have supporting context (multiple mentions,
-              projects or experience).
-            </p>
-          ) : (
-            <ul className="min-w-0 w-full rounded-xl border border-warning-100 bg-warning-50/30 p-3 space-y-2.5 flex-1">
-              {gap.weakSkills.map((w) => (
-                <li key={w.name} className="min-w-0 rounded-xl bg-white border border-warning-200 px-3.5 py-2.5 break-words">
+          <div className="min-w-0 w-full rounded-xl border border-warning-100 bg-warning-50/30 p-3 space-y-2.5 flex-1">
+            {gap.weakSkills.length === 0 ? (
+              <p className="text-sm text-navy-500">
+                No weak-evidence skills detected — all matched skills have supporting context (multiple mentions,
+                projects or experience).
+              </p>
+            ) : (
+              gap.weakSkills.map((w) => (
+                <div key={w.name} className="min-w-0 rounded-xl bg-white border border-warning-200 px-3.5 py-2.5 break-words">
                   <p className="text-xs font-bold text-warning-600">{w.name}</p>
                   <p className="text-[11px] text-navy-500 mt-1 leading-relaxed">{w.reason}</p>
-                </li>
-              ))}
-            </ul>
-          )}
+                </div>
+              ))
+            )}
+          </div>
         </Card>
       </div>
 
