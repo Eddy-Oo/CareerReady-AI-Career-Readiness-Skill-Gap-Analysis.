@@ -94,7 +94,7 @@ export default function CareerMatching() {
               </div>
               <Button
                 variant="secondary"
-                className="mt-3 min-h-11 w-full !border-2 !border-white !bg-white !text-navy-900 shadow-md hover:!bg-brand-50"
+                className="mt-3 min-h-11 w-full !border-2 !border-white/70 !bg-transparent !text-white shadow-md hover:!bg-white hover:!text-navy-900"
                 size="md"
                 type="button"
                 aria-pressed={career?.id === top5[0].careerId}
@@ -154,7 +154,7 @@ export default function CareerMatching() {
                   variant={isTarget ? "secondary" : "primary"}
                   size="md"
                   type="button"
-                  className={`min-h-11 w-full border-2 ${isTarget ? "!border-success-500 !bg-success-50 !text-success-800 hover:!bg-success-100" : "!border-brand-700 !bg-brand-700 !text-white hover:!bg-brand-800"}`}
+                  className={`min-h-11 w-full border-2 ${isTarget ? "!border-success-500 !bg-success-50 !text-success-800 hover:!bg-success-100" : "!border-brand-700 !bg-white !text-brand-800 hover:!bg-brand-50"}`}
                   aria-pressed={isTarget}
                   onClick={() => {
                     selectCareer(m.careerId);
