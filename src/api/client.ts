@@ -46,7 +46,12 @@ async function apiFetch<T>(path: string, init?: RequestInit, timeoutMs = 20000):
     }
     return (await res.json()) as T;
   } catch (error) {
-    if (error instanceof Error && error.name === "AbortError") throw new Error("The backend request timed out. Please try again.");
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error("The backend request timed out. Please try again.");
+    }
+    if (error instanceof TypeError && /fetch/i.test(error.message)) {
+      throw new Error("Cannot connect to the CareerReady AI API. Check that the Render backend is running and that the frontend VITE_API_BASE_URL points to https://careerready-ai-api-a49q.onrender.com. If the API is running, redeploy the backend to apply the CORS fix.");
+    }
     throw error;
   } finally {
     clearTimeout(timer);
