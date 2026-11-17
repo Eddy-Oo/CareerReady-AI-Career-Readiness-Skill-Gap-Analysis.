@@ -1,4 +1,3 @@
-import { useRef } from "react";
 import { FileText, Printer, Download, ArrowRight, Trophy, Target, Sparkles, Layers } from "lucide-react";
 import { Card, SectionHeader, Badge, Button, EmptyState, ProgressBar } from "../components/ui";
 import { ReadinessGauge } from "../components/charts";
@@ -6,11 +5,69 @@ import { useAnalysis } from "../hooks/useAnalysis";
 import { useAnalysisStore } from "../store";
 import { Link } from "react-router-dom";
 
+
+function downloadCareerReportPdf(lines: string[], filename: string) {
+  const clean = (value: string) => value.normalize("NFKD").replace(/[\\u0300-\\u036f]/g, "").replace(/[^\\x20-\\x7E]/g, "?");
+  const wrapped = lines.flatMap((value) => {
+    const words = clean(value).split(/\\s+/);
+    const result: string[] = [];
+    let line = "";
+    words.forEach((word) => {
+      if (line && (line + " " + word).length > 88) {
+        result.push(line);
+        line = word;
+      } else {
+        line = line ? line + " " + word : word;
+      }
+    });
+    result.push(line);
+    return result;
+  });
+  const pages: string[][] = [];
+  for (let i = 0; i < wrapped.length; i += 48) pages.push(wrapped.slice(i, i + 48));
+  const objects: string[] = [];
+  objects[1] = "<< /Type /Catalog /Pages 2 0 R >>";
+  objects[3] = "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>";
+  const pageRefs: string[] = [];
+  pages.forEach((page, pageIndex) => {
+    const pageId = 4 + pageIndex * 2;
+    const streamId = pageId + 1;
+    pageRefs.push(pageId + " 0 R");
+    const commands = ["BT", "/F1 16 Tf", "50 750 Td", "(CareerReady AI - Career Readiness Report) Tj", "/F1 9 Tf"];
+    page.forEach((line, index) => {
+      commands.push(index === 0 ? "0 -28 Td" : "0 -14 Td");
+      commands.push("(" + line.replace(/\\/g, "\\\\").replace(/\\(/g, "\\(").replace(/\\)/g, "\\)") + ") Tj");
+    });
+    commands.push("ET", "BT", "/F1 8 Tf", "50 28 Td", "(Page " + (pageIndex + 1) + " of " + pages.length + ") Tj", "ET");
+    const stream = commands.join("\\n");
+    objects[pageId] = "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents " + streamId + " 0 R >>";
+    objects[streamId] = "<< /Length " + new TextEncoder().encode(stream).length + " >>\\nstream\\n" + stream + "\\nendstream";
+  });
+  objects[2] = "<< /Type /Pages /Kids [" + pageRefs.join(" ") + "] /Count " + pages.length + " >>";
+  let pdf = "%PDF-1.4\\n";
+  const offsets = [0];
+  for (let id = 1; id < objects.length; id++) {
+    offsets[id] = new TextEncoder().encode(pdf).length;
+    pdf += id + " 0 obj\\n" + objects[id] + "\\nendobj\\n";
+  }
+  const xrefOffset = new TextEncoder().encode(pdf).length;
+  pdf += "xref\\n0 " + objects.length + "\\n0000000000 65535 f \\n";
+  for (let id = 1; id < objects.length; id++) pdf += String(offsets[id]).padStart(10, "0") + " 00000 n \\n";
+  pdf += "trailer\\n<< /Size " + objects.length + " /Root 1 0 R >>\\nstartxref\\n" + xrefOffset + "\\n%%EOF";
+  const url = URL.createObjectURL(new Blob([pdf], { type: "application/pdf" }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
 export default function Reports() {
   const { analysis, career, gap, readiness, matches, profile } = useAnalysis();
   const history = useAnalysisStore((s) => s.history);
   const setToast = useAnalysisStore((s) => s.setToast);
-  const printRef = useRef<HTMLDivElement>(null);
 
   if (!analysis || !career || !gap || !readiness) {
     return (
@@ -44,8 +101,57 @@ export default function Reports() {
             </Button>
             <Button
               onClick={() => {
-                setToast("Preparing PDF — choose 'Save as PDF' in the print dialog.");
-                setTimeout(() => window.print(), 350);
+                const lines = [
+                  "CAREERREADY AI - CAREER READINESS REPORT",
+                  "Generated: " + date,
+                  "Analysis ID: " + analysis.id,
+                  "",
+                  "STUDENT INFORMATION",
+                  "Name: " + profile.fullName,
+                  "Email: " + profile.email,
+                  "University: " + profile.university,
+                  "Degree: " + profile.degree,
+                  "Graduation year: " + profile.graduationYear,
+                  "Experience level: " + profile.experienceLevel,
+                  "Career interests: " + (profile.careerInterests.join(", ") || "Not specified"),
+                  "",
+                  "CAREER READINESS",
+                  "Target career: " + career.title,
+                  "Overall readiness: " + readiness.overall + "%",
+                  "Skill coverage: " + gap.coverage + "%",
+                  readiness.disclaimer,
+                  "",
+                  "READINESS SCORE FACTORS",
+                  ...readiness.breakdown.map((item) => item.label + ": " + item.score + "% (weight " + Math.round(item.weight * 100) + "%)"),
+                  "",
+                  "RESUME ANALYSIS",
+                  "Resume file: " + analysis.fileName,
+                  "Technical skills: " + analysis.technicalSkills.length,
+                  "Soft skills: " + analysis.softSkills.length,
+                  "Projects: " + analysis.projects.length,
+                  "Extracted skills: " + analysis.extractedSkills.map((skill) => skill.name).join(", "),
+                  "",
+                  "SKILL GAP ANALYSIS",
+                  "Matched skills: " + gap.matchedSkills.join(", "),
+                  "Missing skills: " + gap.missingSkills.join(", "),
+                  "Weak skills: " + gap.weakSkills.map((skill) => skill.name).join(", "),
+                  "",
+                  "TOP CAREER MATCHES",
+                  ...matches.slice(0, 5).map((match, index) => (index + 1) + ". " + match.careerTitle + ": " + match.score + "%"),
+                  "",
+                  "LEARNING RECOMMENDATIONS",
+                  "Priority skill 1: " + (gap.technicalMissing[0] || "Deepen existing skills"),
+                  "Priority skill 2: " + (gap.technicalMissing[1] || "Build portfolio projects"),
+                  "Practice: 2-3 interview problems weekly and prepare STAR stories.",
+                  "Application goal: Apply to " + career.title + " roles after reaching 70% readiness.",
+                  "",
+                  "ANALYSIS HISTORY",
+                  ...(history.length ? history.map((item) => new Date(item.date).toLocaleDateString() + " | " + item.careerTitle + " | Matched: " + item.matched + " | Missing: " + item.missing + " | Readiness: " + item.readiness + "%") : ["No previous analysis history."]),
+                  "",
+                  "Readiness scores are educational estimates, not hiring probabilities."
+                ];
+                downloadCareerReportPdf(lines, "CareerReady-AI-Report-" + new Date().toISOString().slice(0, 10) + ".pdf");
+                setToast("Your career report PDF has been downloaded.");
               }}
             >
               <Download className="h-4 w-4" /> Export PDF
@@ -54,7 +160,7 @@ export default function Reports() {
         }
       />
 
-      <div ref={printRef} className="space-y-5 rounded-2xl">
+      <div className="space-y-5 rounded-2xl">
         {/* Report header */}
         <div className="rounded-2xl bg-navy-800 text-white p-6 sm:p-8 relative overflow-hidden">
           <div className="absolute -top-14 -right-14 h-48 w-48 rounded-full bg-brand-500/25 blur-3xl" />
