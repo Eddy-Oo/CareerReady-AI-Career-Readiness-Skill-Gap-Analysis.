@@ -1,3 +1,4 @@
+
 import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import EditResumeDetails from "../components/EditResumeDetails";
@@ -20,13 +21,15 @@ import {
   Badge,
   Button,
   EmptyState,
-  Spinner,
 } from "../components/ui";
 import { useAnalysisStore } from "../store";
-import { apiAnalyzeResume, apiPredictCareerRole, apiGenerateCareerAdvice } from "../api/client";
+import {
+  apiAnalyzeResume,
+  apiPredictCareerRole,
+  apiGenerateCareerAdvice,
+} from "../api/client";
 import { extractResumeText } from "../lib/extract";
 import { SKILL_CATEGORIES } from "../types";
-import type { SkillCategory } from "../types";
 
 const CATEGORY_TONE: Record<string, string> = {
   "Programming Languages": "blue",
@@ -41,53 +44,101 @@ const CATEGORY_TONE: Record<string, string> = {
   "Soft Skills": "green",
 };
 
+
+function formatCareerAdvice(text: string): string {
+  return text
+    // Remove Markdown heading symbols
+    .replace(/^#{1,6}\s*/gm, "")
+
+    // Remove bold and italic markers
+    .replace(/\*\*\*(.*?)\*\*\*/g, "$1")
+    .replace(/\*\*(.*?)\*\*/g, "$1")
+    .replace(/(?<!\*)\*([^*\n]+)\*(?!\*)/g, "$1")
+
+    // Remove Markdown horizontal lines
+    .replace(/^\s*[-*_]{3,}\s*$/gm, "")
+
+    // Remove inline code markers
+    .replace(/`([^`]+)`/g, "$1")
+
+    // Convert Markdown bullets to readable bullets
+    .replace(/^\s*[-*]\s+/gm, "• ")
+
+    // Remove excessive blank lines
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+
 export default function ResumeAnalyzer() {
   const [dragOver, setDragOver] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [phase, setPhase] = useState("");
   const [editing, setEditing] = useState(false);
+
   const [predicting, setPredicting] = useState(false);
   const [predictionError, setPredictionError] = useState<string | null>(null);
-  const [prediction, setPrediction] = useState<Awaited<ReturnType<typeof apiPredictCareerRole>> | null>(null);
+  const [prediction, setPrediction] =
+    useState<Awaited<ReturnType<typeof apiPredictCareerRole>> | null>(null);
+
   const [generatingAdvice, setGeneratingAdvice] = useState(false);
   const [adviceError, setAdviceError] = useState<string | null>(null);
-  const [careerAdvice, setCareerAdvice] = useState<Awaited<ReturnType<typeof apiGenerateCareerAdvice>> | null>(null);
+  const [careerAdvice, setCareerAdvice] =
+    useState<Awaited<ReturnType<typeof apiGenerateCareerAdvice>> | null>(null);
+
   const inputRef = useRef<HTMLInputElement>(null);
   const { analysis, setAnalysis, setToast } = useAnalysisStore();
   const navigate = useNavigate();
 
+  // Analyze resume
   const runAnalysis = async (text: string, fileName: string) => {
     setEditing(false);
     setBusy(true);
     setError(null);
+
+    // Clear previous prediction and advice for a new resume
+    setPrediction(null);
+    setPredictionError(null);
+    setCareerAdvice(null);
+    setAdviceError(null);
+
     setPhase("Extracting text from PDF…");
+
     try {
       setPhase("Running NLP skill extraction…");
+
       const result = await apiAnalyzeResume(text, fileName);
+
       setPhase("Organizing skills into categories…");
+
       setAnalysis(result);
+
       setToast(
         `Analysis complete — ${result.extractedSkills.length} skills extracted from ${fileName}`
       );
-      setBusy(false);
-      setPhase("");
+
     } catch (e) {
-      setBusy(false);
-      setPhase("");
       setError(
         e instanceof Error
           ? e.message
           : "Analysis failed. Please try another file."
       );
+    } finally {
+      setBusy(false);
+      setPhase("");
     }
   };
 
+  // Upload resume file
   const handleFile = async (file: File) => {
     if (busy) return;
+
     setError(null);
 
-    const isPdf = file.type === "application/pdf" || /\.pdf$/i.test(file.name);
+    const isPdf =
+      file.type === "application/pdf" ||
+      /\.pdf$/i.test(file.name);
 
     const isImage =
       ["image/jpeg", "image/png"].includes(file.type) ||
@@ -107,64 +158,141 @@ export default function ResumeAnalyzer() {
     setPhase(isPdf ? "Reading PDF…" : "Preparing image…");
 
     try {
-      const text = await extractResumeText(file, isPdf, () => {
-        setPhase("Reading résumé with OCR…");
-      });
+      const text = await extractResumeText(
+        file,
+        isPdf,
+        () => {
+          setPhase("Reading résumé with OCR…");
+        }
+      );
+
       await runAnalysis(text, file.name);
-    } catch (error) {
-      setBusy(false);
-      setPhase("");
+
+    } catch (e) {
       setError(
-        error instanceof Error
-          ? error.message
+        e instanceof Error
+          ? e.message
           : "Could not read this résumé. Try a clearer image or PDF."
       );
+
+      setBusy(false);
+      setPhase("");
     }
   };
 
-
+  // Machine Learning Career Prediction
   const handleCareerPrediction = async () => {
     if (!analysis?.rawTextPreview?.trim() || predicting) return;
+
     setPredicting(true);
     setPredictionError(null);
     setPrediction(null);
+    setCareerAdvice(null);
+    setAdviceError(null);
+
     try {
-      const result = await apiPredictCareerRole(analysis.rawTextPreview);
-      setPrediction(result);
-    } catch (e) {
-      setPredictionError(
-        e instanceof Error ? e.message : "Career prediction failed. Please try again."
+      console.log("Starting ML career prediction...");
+
+      const result = await apiPredictCareerRole(
+        analysis.rawTextPreview
       );
+
+      console.log("ML prediction response:", result);
+
+      setPrediction(result);
+
+    } catch (e) {
+      console.error("ML CAREER PREDICTION ERROR:", e);
+
+      setPredictionError(
+        e instanceof Error
+          ? e.message
+          : "Career prediction failed. Please try again."
+      );
+
     } finally {
       setPredicting(false);
     }
   };
 
-
+  // Gemini AI Career Advice
   const handleGenerateCareerAdvice = async () => {
-    if (!analysis?.rawTextPreview?.trim() || !prediction || generatingAdvice) return;
+    if (
+      !analysis?.rawTextPreview?.trim() ||
+      !prediction ||
+      generatingAdvice
+    ) {
+      return;
+    }
+
     setGeneratingAdvice(true);
     setAdviceError(null);
-    setCareerAdvice(null);
+
     try {
+      console.log("Starting Gemini AI career advice request...");
+
       const result = await apiGenerateCareerAdvice({
         resumeText: analysis.rawTextPreview,
         predictedCareer: prediction.predictedJobRole,
-        existingSkills: analysis.extractedSkills.map((skill) => skill.name),
+        existingSkills: analysis.extractedSkills.map(
+          (skill) => skill.name
+        ),
       });
-      setCareerAdvice(result);
+
+      console.log("Gemini AI response:", result);
+
+      // Check whether Gemini returned valid advice
+      if (
+        !result ||
+        typeof result.advice !== "string" ||
+        !result.advice.trim()
+      ) {
+        throw new Error(
+          "The AI returned an empty response. Please try again."
+        );
+      }
+
+      // Save the AI response
+      setCareerAdvice({
+        predictedCareer:
+          result.predictedCareer || prediction.predictedJobRole,
+
+        advice: result.advice,
+
+        existingSkills: Array.isArray(result.existingSkills)
+          ? result.existingSkills
+          : [],
+
+        missingSkills: Array.isArray(result.missingSkills)
+          ? result.missingSkills
+          : [],
+
+        model: result.model || "Gemini",
+      });
+
+      console.log("AI career advice displayed successfully.");
+
     } catch (e) {
+      console.error("AI CAREER ADVICE FRONTEND ERROR:", e);
+
       setAdviceError(
-        e instanceof Error ? e.message : "Could not generate career advice. Please try again."
+        e instanceof Error
+          ? e.message
+          : "Unable to generate AI career advice. Please try again."
       );
+
     } finally {
       setGeneratingAdvice(false);
     }
   };
 
+  // Group extracted skills
   const grouped = SKILL_CATEGORIES.map((cat) => ({
     cat,
-    skills: analysis?.extractedSkills.filter((s) => s.category === cat) ?? [],
+    skills:
+      analysis?.extractedSkills.filter(
+        (s) => s.category === cat
+      ) ?? [],
   })).filter((g) => g.skills.length > 0);
 
   const softSkills = analysis?.softSkills ?? [];
@@ -213,14 +341,17 @@ export default function ResumeAnalyzer() {
             e.target.value = "";
           }}
         />
+
         {busy ? (
           <div className="py-4">
             <div className="mx-auto mb-3 flex h-14 w-14 animate-pulseRing items-center justify-center rounded-2xl bg-brand-100 text-brand-600">
               <Cpu className="h-7 w-7 animate-pulse" />
             </div>
+
             <p className="text-sm font-bold text-navy-700">
               {phase || "Analyzing…"}
             </p>
+
             <div className="mx-auto mt-3 h-1.5 w-56 overflow-hidden rounded-full bg-navy-100">
               <div className="h-full w-1/2 rounded-full bg-gradient-to-r from-brand-500 to-violet-600 animate-shimmer bg-[length:200px_100%]" />
             </div>
@@ -230,13 +361,18 @@ export default function ResumeAnalyzer() {
             <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-500 to-violet-600 text-white shadow-glow">
               <UploadCloud className="h-7 w-7" />
             </div>
+
             <p className="text-base font-bold text-navy-800">
               Drop your resume PDF here{" "}
-              <span className="text-brand-600">or click to browse</span>
+              <span className="text-brand-600">
+                or click to browse
+              </span>
             </p>
+
             <p className="text-sm text-navy-400 mt-1.5">
-              PDF only · up to 10 MB · stored securely on the backend
+              PDF, JPG or PNG · up to 10 MB · stored securely on the backend
             </p>
+
             <div className="mt-5 flex flex-wrap justify-center gap-2">
               <Button
                 variant="secondary"
@@ -255,7 +391,8 @@ export default function ResumeAnalyzer() {
 
       {error && (
         <div className="flex items-start gap-2.5 rounded-xl bg-danger-50 border border-red-100 px-4 py-3 text-sm font-medium text-red-700 animate-fade-in">
-          <AlertTriangle className="h-4.5 w-4.5 shrink-0 mt-0.5" /> {error}
+          <AlertTriangle className="h-4.5 w-4.5 shrink-0 mt-0.5" />
+          {error}
         </div>
       )}
 
@@ -291,10 +428,13 @@ export default function ResumeAnalyzer() {
                 <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/10">
                   <FileText className="h-6 w-6 text-brand-300" />
                 </div>
+
                 <div>
                   <p className="font-bold">{analysis.fileName}</p>
+
                   <p className="text-xs text-navy-300">
-                    Analyzed {new Date(analysis.analyzedAt).toLocaleString()} ·{" "}
+                    Analyzed{" "}
+                    {new Date(analysis.analyzedAt).toLocaleString()} ·{" "}
                     <span
                       className={
                         analysis.source === "backend"
@@ -309,6 +449,7 @@ export default function ResumeAnalyzer() {
                   </p>
                 </div>
               </div>
+
               <div className="flex gap-6 text-center">
                 {[
                   [analysis.technicalSkills.length, "Technical"],
@@ -329,7 +470,6 @@ export default function ResumeAnalyzer() {
             </div>
           </Card>
 
-
           {/* ML Career Prediction */}
           <Card>
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -337,44 +477,84 @@ export default function ResumeAnalyzer() {
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-violet-700">
                   <BrainCircuit className="h-6 w-6" />
                 </div>
+
                 <div>
-                  <h3 className="font-bold text-navy-800">ML Career Prediction</h3>
+                  <h3 className="font-bold text-navy-800">
+                    ML Career Prediction
+                  </h3>
+
                   <p className="mt-1 text-sm text-navy-500">
                     Predict the top career-role categories using your analyzed resume and our trained machine learning model.
                   </p>
                 </div>
               </div>
-              <Button onClick={handleCareerPrediction} disabled={predicting || !analysis.rawTextPreview.trim()}>
-                {predicting ? "Predicting…" : "Predict My Career Role"}
+
+              <Button
+                onClick={handleCareerPrediction}
+                disabled={
+                  predicting ||
+                  !analysis.rawTextPreview.trim()
+                }
+              >
+                {predicting
+                  ? "Predicting…"
+                  : "Predict My Career Role"}
               </Button>
             </div>
+
             {predictionError && (
-              <p role="alert" className="mt-4 rounded-lg border border-red-100 bg-danger-50 px-3 py-2 text-sm text-red-700">
+              <p
+                role="alert"
+                className="mt-4 rounded-lg border border-red-100 bg-danger-50 px-3 py-2 text-sm text-red-700"
+              >
                 {predictionError}
               </p>
             )}
+
             {prediction && (
               <div className="mt-5 border-t border-navy-100 pt-4">
-                <p className="text-xs font-bold uppercase tracking-wide text-navy-400">Predicted career role</p>
-                <p className="mt-1 text-xl font-extrabold text-violet-700">{prediction.predictedJobRole}</p>
+                <p className="text-xs font-bold uppercase tracking-wide text-navy-400">
+                  Predicted career role
+                </p>
+
+                <p className="mt-1 text-xl font-extrabold text-violet-700">
+                  {prediction.predictedJobRole}
+                </p>
+
                 <div className="mt-4 space-y-3">
                   {prediction.topPredictions.map((item) => (
                     <div key={item.jobRole}>
                       <div className="mb-1 flex justify-between gap-3 text-sm">
-                        <span className="font-semibold text-navy-700">{item.jobRole}</span>
-                        <span className="font-bold text-navy-600">{item.probability.toFixed(2)}%</span>
+                        <span className="font-semibold text-navy-700">
+                          {item.jobRole}
+                        </span>
+
+                        <span className="font-bold text-navy-600">
+                          {item.probability.toFixed(2)}%
+                        </span>
                       </div>
+
                       <div className="h-2 overflow-hidden rounded-full bg-navy-100">
-                        <div className="h-full rounded-full bg-violet-500" style={{ width: `${Math.max(0, Math.min(100, item.probability))}%` }} />
+                        <div
+                          className="h-full rounded-full bg-violet-500"
+                          style={{
+                            width: `${Math.max(
+                              0,
+                              Math.min(100, item.probability)
+                            )}%`,
+                          }}
+                        />
                       </div>
                     </div>
                   ))}
                 </div>
-                <p className="mt-4 text-xs leading-relaxed text-navy-400">{prediction.disclaimer}</p>
+
+                <p className="mt-4 text-xs leading-relaxed text-navy-400">
+                  {prediction.disclaimer}
+                </p>
               </div>
             )}
           </Card>
-
 
           {/* Generative AI Career Advisor */}
           <Card>
@@ -383,48 +563,114 @@ export default function ResumeAnalyzer() {
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-100 text-brand-700">
                   <Sparkles className="h-6 w-6" />
                 </div>
+
                 <div>
-                  <h3 className="font-bold text-navy-800">Generative AI Career Advisor</h3>
+                  <h3 className="font-bold text-navy-800">
+                    Generative AI Career Advisor
+                  </h3>
+
                   <p className="mt-1 text-sm text-navy-500">
                     Get personalized advice based on your resume and predicted career role.
                   </p>
                 </div>
               </div>
-              <Button onClick={handleGenerateCareerAdvice} disabled={generatingAdvice || !prediction}>
-                {generatingAdvice ? "Generating advice…" : "Generate AI Career Advice"}
+
+              <Button
+                onClick={handleGenerateCareerAdvice}
+                disabled={generatingAdvice || !prediction}
+              >
+                {generatingAdvice
+                  ? "Generating advice…"
+                  : "Generate AI Career Advice"}
               </Button>
             </div>
+
             {!prediction && (
               <p className="mt-3 text-xs text-navy-400">
                 First click “Predict My Career Role” above. Your prediction will guide the AI advice.
               </p>
             )}
+
             {adviceError && (
-              <p role="alert" className="mt-4 rounded-lg border border-red-100 bg-danger-50 px-3 py-2 text-sm text-red-700">
+              <p
+                role="alert"
+                className="mt-4 rounded-lg border border-red-100 bg-danger-50 px-3 py-2 text-sm text-red-700"
+              >
                 {adviceError}
               </p>
             )}
+
+            {generatingAdvice && (
+              <p className="mt-4 text-sm text-navy-500">
+                Gemini is preparing your personalized career advice. Please wait…
+              </p>
+            )}
+
             {careerAdvice && (
               <div className="mt-5 border-t border-navy-100 pt-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
-                    <p className="text-xs font-bold uppercase tracking-wide text-navy-400">AI career recommendation</p>
-                    <p className="mt-1 text-lg font-extrabold text-brand-700">{careerAdvice.predictedCareer}</p>
+                    <p className="text-xs font-bold uppercase tracking-wide text-navy-400">
+                      AI career recommendation
+                    </p>
+
+                    <p className="mt-1 text-lg font-extrabold text-brand-700">
+                      {careerAdvice.predictedCareer}
+                    </p>
                   </div>
+
                   <Badge tone="violet">Generative AI</Badge>
                 </div>
+
                 <div className="mt-4 whitespace-pre-wrap text-sm leading-7 text-navy-700">
-                  {careerAdvice.advice}
+                  {formatCareerAdvice(careerAdvice.advice)}
                 </div>
+
+                {/* Existing skills */}
                 <div className="mt-4">
-                  <p className="text-xs font-bold uppercase tracking-wide text-navy-400">Skills found in your resume</p>
+                  <p className="text-xs font-bold uppercase tracking-wide text-navy-400">
+                    Skills found in your resume
+                  </p>
+
                   <div className="mt-2 flex flex-wrap gap-2">
-                    {careerAdvice.existingSkills.map((skill) => (
-                      <Badge key={skill} tone="green">{skill}</Badge>
-                    ))}
+                    {careerAdvice.existingSkills.length > 0 ? (
+                      careerAdvice.existingSkills.map((skill) => (
+                        <Badge key={skill} tone="green">
+                          {skill}
+                        </Badge>
+                      ))
+                    ) : (
+                      <p className="text-sm text-navy-400">
+                        No existing skills were returned.
+                      </p>
+                    )}
                   </div>
                 </div>
-                <p className="mt-3 text-xs text-navy-400">Generated with {careerAdvice.model}. AI advice is a guide, not a guaranteed career assessment.</p>
+
+                {/* Missing skills */}
+                <div className="mt-4">
+                  <p className="text-xs font-bold uppercase tracking-wide text-navy-400">
+                    Skills to improve
+                  </p>
+
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {careerAdvice.missingSkills.length > 0 ? (
+                      careerAdvice.missingSkills.map((skill) => (
+                        <Badge key={skill} tone="violet">
+                          {skill}
+                        </Badge>
+                      ))
+                    ) : (
+                      <p className="text-sm text-navy-400">
+                        No missing skills returned.
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <p className="mt-3 text-xs text-navy-400">
+                  Generated with {careerAdvice.model}. AI advice is a guide, not a guaranteed career assessment.
+                </p>
               </div>
             )}
           </Card>
@@ -434,11 +680,15 @@ export default function ResumeAnalyzer() {
             {grouped.map((g) => (
               <Card key={g.cat} hover>
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-bold text-navy-800 text-sm">{g.cat}</h3>
+                  <h3 className="font-bold text-navy-800 text-sm">
+                    {g.cat}
+                  </h3>
+
                   <Badge tone={(CATEGORY_TONE[g.cat] ?? "gray") as "blue"}>
                     {g.skills.length}
                   </Badge>
                 </div>
+
                 <div className="flex flex-wrap gap-1.5">
                   {g.skills.map((s) => (
                     <span
@@ -451,8 +701,11 @@ export default function ResumeAnalyzer() {
                       className="inline-flex items-center gap-1 rounded-lg bg-navy-50 border border-navy-100 px-2.5 py-1 text-xs font-semibold text-navy-600 hover:border-brand-300 hover:text-brand-700 transition"
                     >
                       {s.name}
+
                       <span className="text-[9px] font-bold text-navy-300">
-                        {s.userEdited ? "Edited" : `${s.confidence}%`}
+                        {s.userEdited
+                          ? "Edited"
+                          : `${s.confidence}%`}
                       </span>
                     </span>
                   ))}
@@ -468,26 +721,32 @@ export default function ResumeAnalyzer() {
                 title="Education"
                 icon={<GraduationCap className="h-5 w-5" />}
               />
+
               {analysis.education.length === 0 ? (
                 <p className="text-sm text-navy-400">
-                  No education section detected.Review the extracted information
-                  or add an education.
+                  No education section detected. Review the extracted information or add an education.
                 </p>
               ) : (
                 <div className="space-y-4">
                   {analysis.education.map((e, i) => (
-                    <div key={i} className="border-l-2 border-brand-500 pl-4">
+                    <div
+                      key={i}
+                      className="border-l-2 border-brand-500 pl-4"
+                    >
                       <p className="text-sm font-bold text-navy-800">
                         {e.degree ?? "Degree"}
                       </p>
+
                       <p className="text-xs text-navy-500 mt-0.5">
                         {e.institution}
                       </p>
+
                       {e.year && (
                         <p className="text-xs font-semibold text-brand-600 mt-1">
                           {e.year}
                         </p>
                       )}
+
                       {e.details && (
                         <p className="text-xs text-navy-400 mt-1">
                           {e.details}
@@ -504,24 +763,32 @@ export default function ResumeAnalyzer() {
                 title="Work experience"
                 icon={<Briefcase className="h-5 w-5" />}
               />
+
               {analysis.experiences.length === 0 ? (
                 <p className="text-sm text-navy-400">
-                  No experience detected. Review the extracted information or
-                  add an experience.
+                  No experience detected. Review the extracted information or add an experience.
                 </p>
               ) : (
                 <div className="space-y-4">
                   {analysis.experiences.map((x, i) => (
-                    <div key={i} className="border-l-2 border-violet-500 pl-4">
+                    <div
+                      key={i}
+                      className="border-l-2 border-violet-500 pl-4"
+                    >
                       <p className="text-sm font-bold text-navy-800">
                         {x.title}
                       </p>
+
                       <p className="text-xs text-navy-500 mt-0.5">
                         {x.organization}
+
                         {x.duration && (
-                          <span className="text-navy-300"> · {x.duration}</span>
+                          <span className="text-navy-300">
+                            {" "}· {x.duration}
+                          </span>
                         )}
                       </p>
+
                       {x.summary && (
                         <p className="text-xs text-navy-400 mt-1.5 leading-relaxed">
                           {x.summary}
@@ -538,10 +805,10 @@ export default function ResumeAnalyzer() {
                 title="Projects"
                 icon={<FolderKanban className="h-5 w-5" />}
               />
+
               {analysis.projects.length === 0 ? (
                 <p className="text-sm text-navy-400">
-                  No Projects detected. Review the extracted information or add
-                  a Project.
+                  No projects detected. Review the extracted information or add a project.
                 </p>
               ) : (
                 <ul className="space-y-2.5">
@@ -551,6 +818,7 @@ export default function ResumeAnalyzer() {
                       className="flex items-start gap-2.5 rounded-xl bg-success-50 border border-success-100 px-3.5 py-2.5"
                     >
                       <CheckCircle2 className="h-4 w-4 text-success-600 shrink-0 mt-0.5" />
+
                       <span className="text-xs font-medium text-navy-600 leading-relaxed">
                         {p}
                       </span>
@@ -568,6 +836,7 @@ export default function ResumeAnalyzer() {
               subtitle="Identified from phrasing and context in your resume"
               icon={<Users className="h-5 w-5" />}
             />
+
             <div className="flex flex-wrap gap-2">
               {softSkills.length === 0 ? (
                 <p className="text-sm text-navy-400">
@@ -584,11 +853,19 @@ export default function ResumeAnalyzer() {
                 ))
               )}
             </div>
+
             <div className="mt-5 flex justify-end gap-2.5 no-print">
-              <Button variant="secondary" onClick={() => setEditing(true)}>
+              <Button
+                variant="secondary"
+                onClick={() => setEditing(true)}
+              >
                 Edit extracted details
               </Button>
-              <Button variant="secondary" onClick={() => navigate("/careers")}>
+
+              <Button
+                variant="secondary"
+                onClick={() => navigate("/careers")}
+              >
                 Continue to career selection →
               </Button>
             </div>

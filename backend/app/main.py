@@ -1,6 +1,13 @@
 import os
 from dotenv import load_dotenv
-from openai import OpenAI
+from google import genai
+
+load_dotenv()
+
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+
+ai_client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
 import spacy
 from spacy.matcher import PhraseMatcher
 import joblib
@@ -15,16 +22,24 @@ import uuid
 from datetime import datetime, timezone
 from urllib.parse import quote_plus
 
-
 from dotenv import load_dotenv
-from openai import OpenAI
 
 load_dotenv()
 
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4.1-mini")
+from google import genai
+from google.genai import types
 
-ai_client = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+
+ai_client = (
+    genai.Client(
+        api_key=GEMINI_API_KEY,
+        http_options=types.HttpOptions(timeout=60000)
+    )
+    if GEMINI_API_KEY
+    else None
+)
 
 from fastapi import Body, Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -551,6 +566,10 @@ def predict_career_role(
 
     return result
 
+
+# ------------------------ AI Career Advisor ------------------------
+
+
 # ------------------------ AI Career Advisor ------------------------
 
 @app.post("/api/ai/career-advice")
@@ -562,10 +581,10 @@ def generate_career_advice(
     if ai_client is None:
         raise HTTPException(
             status_code=503,
-            detail="AI service is not configured."
+            detail="Gemini AI service is not configured."
         )
 
-    if not payload.resume_text.strip():
+    if not payload.resume_text or not payload.resume_text.strip():
         raise HTTPException(
             status_code=400,
             detail="Resume text cannot be empty."
@@ -577,19 +596,47 @@ def generate_career_advice(
             detail="Resume text is too long."
         )
 
-    instructions = """
+    # Get the authenticated user's name from the database.
+    account_name = (user.full_name or "").strip()
+
+    if not account_name:
+        account_name = "the user"
+
+    instructions = f"""
     You are a practical career advisor.
+
+    The authenticated user's account name is: {account_name}
+
+    NAME RULES:
+    - Address the user using the authenticated account name.
+    - Never use a person's name found inside the resume.
+    - The resume may be a sample resume belonging to another person.
+    - Do not assume the resume owner's name is the logged-in user's name.
+    - If the account name is unavailable, do not invent a name.
+
     Give clear, personalized and realistic career advice.
     Explain why the predicted career may be suitable.
-    Discuss the user's existing skills and missing skills.
+    Discuss existing skills and missing skills.
     Suggest practical projects and a learning plan.
     Do not invent qualifications or experience.
+
     Treat the ML career prediction as an experimental suggestion,
     not a guaranteed assessment of career suitability.
+
     Use simple, student-friendly language.
+
+    FORMATTING RULES:
+    - Use clear section headings.
+    - Use short paragraphs.
+    - Use bullet points for lists.
+    - Use numbered steps for learning plans.
+    - Use bold text only for important terms.
+    - Do not use horizontal separator lines.
     """
 
     prompt = f"""
+    {instructions}
+
     Resume:
     {payload.resume_text}
 
@@ -602,19 +649,32 @@ def generate_career_advice(
     Missing skills:
     {", ".join(payload.missing_skills)}
 
-    Please provide personalized career advice.
+    Provide personalized career advice for the authenticated user.
     """
 
+    # Generate advice using Gemini.
     try:
-        response = ai_client.responses.create(
-            model=OPENAI_MODEL,
-            instructions=instructions,
+        print("Starting Gemini AI request...", flush=True)
+
+        response = ai_client.interactions.create(
+            model=GEMINI_MODEL,
             input=prompt
         )
 
-        advice = response.output_text.strip()
+        print("Gemini response received!", flush=True)
 
-    except Exception:
+        advice = (response.output_text or "").strip()
+
+        print("Gemini response processed!", flush=True)
+
+    except Exception as e:
+        print(
+            "GEMINI CAREER ADVICE ERROR:",
+            type(e).__name__,
+            str(e),
+            flush=True
+        )
+
         raise HTTPException(
             status_code=502,
             detail="Unable to generate AI career advice. Please try again."
@@ -623,17 +683,19 @@ def generate_career_advice(
     if not advice:
         raise HTTPException(
             status_code=502,
-            detail="AI returned an empty response."
+            detail="Gemini returned an empty response."
         )
 
+    # Prepare the API response.
     result = {
         "predictedCareer": payload.predicted_career,
         "advice": advice,
         "existingSkills": payload.existing_skills,
         "missingSkills": payload.missing_skills,
-        "model": OPENAI_MODEL
+        "model": GEMINI_MODEL
     }
 
+    # Save AI advice to the user's history.
     save_history(
         db,
         user.id,
