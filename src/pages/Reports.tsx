@@ -36,7 +36,7 @@ function downloadCareerReportPdf(lines: string[], filename: string) {
     const commands = ["BT", "/F1 16 Tf", "50 750 Td", "(CareerReady AI - Career Readiness Report) Tj", "/F1 9 Tf"];
     page.forEach((line, index) => {
       commands.push(index === 0 ? "0 -28 Td" : "0 -14 Td");
-      commands.push("(" + line.replace(/\\/g, "\\\\").replace(/\\(/g, "\\(").replace(/\\)/g, "\\)") + ") Tj");
+      commands.push("(" + line.replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)") + ") Tj");
     });
     commands.push("ET", "BT", "/F1 8 Tf", "50 28 Td", "(Page " + (pageIndex + 1) + " of " + pages.length + ") Tj", "ET");
     const stream = commands.join("\n");
