@@ -107,10 +107,10 @@ export default function CareerMatching() {
               </div>
               <Button
                 variant="primary"
-                className={`mt-3 min-h-11 w-full border-2 font-bold shadow-md ${career?.id === top5[0].careerId
+                className={`mt-3 min-h-10 border-2 px-4 font-bold shadow-md ${career?.id === top5[0].careerId
                   ? "!border-success-300 !bg-success-600 !text-white hover:!bg-success-700"
                   : "!border-white !bg-white !text-navy-900 hover:!border-brand-200 hover:!bg-brand-50"}`}
-                size="md"
+                size="sm"
                 type="button"
                 aria-pressed={career?.id === top5[0].careerId}
                 onClick={() => handleSetTarget(top5[0].careerId, top5[0].careerTitle)}
@@ -161,27 +161,28 @@ export default function CareerMatching() {
                   <span className="text-[11px] text-navy-300 font-semibold">No shared skills yet</span>
                 )}
               </div>
-              <div className="mt-4 grid gap-2">
+              <div className="mt-4 flex items-center gap-2">
                 <Button
                   variant="primary"
-                  size="md"
+                  size="sm"
                   type="button"
-                  className={`min-h-11 w-full border-2 font-bold shadow-sm ${isTarget
+                  className={`min-h-10 flex-1 border-2 font-bold shadow-sm ${isTarget
                     ? "!border-success-700 !bg-success-600 !text-white hover:!bg-success-700"
                     : "!border-brand-700 !bg-brand-700 !text-white hover:!border-brand-800 hover:!bg-brand-800"}`}
                   aria-pressed={isTarget}
                   onClick={() => handleSetTarget(m.careerId, m.careerTitle)}
                 >
                   {isTarget ? <CheckCircle2 className="h-4 w-4" /> : <Target className="h-4 w-4" />}
-                  {isTarget ? "Target selected" : "Set as target"}
+                  {isTarget ? "Target selected" : "Analyze gap"}
                 </Button>
                 {c && (
                   <Link
                     to="/skill-gap"
                     onClick={() => selectCareer(m.careerId)}
-                    className="inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-xl border border-navy-200 bg-white px-4 py-2 text-sm font-semibold text-navy-700 transition hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700"
+                    aria-label={`Open skill gap analysis for ${m.careerTitle}`}
+                    className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-navy-300 bg-white text-navy-800 shadow-sm transition hover:border-brand-500 hover:bg-brand-50 hover:text-brand-800"
                   >
-                    Analyze skill gap <ArrowRight className="h-4 w-4" />
+                    <ArrowRight className="h-4 w-4" />
                   </Link>
                 )}
               </div>
