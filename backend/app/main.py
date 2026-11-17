@@ -370,7 +370,7 @@ def root():
 def health(db: Session = Depends(get_db)):
     try:
         db.execute(__import__("sqlalchemy").text("SELECT 1"))
-        return {"status": "healthy", "database": "connected"}
+        return {"status": "healthy", "database": "connected", "database_type": engine.dialect.name}
     except Exception as exc:
         raise HTTPException(status_code=503, detail="Database connection failed.") from exc
 
