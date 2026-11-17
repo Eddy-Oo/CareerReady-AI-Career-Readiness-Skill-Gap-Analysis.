@@ -1,5 +1,5 @@
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import EditResumeDetails from "../components/EditResumeDetails";
 import {
@@ -83,6 +83,10 @@ export default function ResumeAnalyzer() {
   const setSavedPrediction = useAnalysisStore((s) => s.setPrediction);
   const [prediction, setPrediction] =
     useState<Awaited<ReturnType<typeof apiPredictCareerRole>> | null>(savedPrediction);
+
+  useEffect(() => {
+    setPrediction(savedPrediction);
+  }, [savedPrediction]);
 
   const [generatingAdvice, setGeneratingAdvice] = useState(false);
   const [adviceError, setAdviceError] = useState<string | null>(null);
