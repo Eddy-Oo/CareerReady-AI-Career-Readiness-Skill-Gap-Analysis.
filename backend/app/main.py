@@ -50,7 +50,7 @@ from sqlalchemy.orm import Session
 
 from .database import Base, engine, get_db
 from .models import (
-    AnalysisHistory, CareerMatch, JobDescription, LearningRoadmap, Recommendation,
+    AnalysisHistory, CareerMatch, CareerPrediction, JobDescription, LearningRoadmap, Recommendation,
     Resume, Skill, SkillGapAnalysis, User, UserSkill,
 )
 from .schemas import (
