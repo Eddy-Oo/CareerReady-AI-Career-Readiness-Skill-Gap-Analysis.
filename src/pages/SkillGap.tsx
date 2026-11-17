@@ -77,8 +77,8 @@ export default function SkillGapAnalysis() {
       </div>
 
       {/* Matched / Missing / Weak */}
-      <div className="grid lg:grid-cols-3 gap-5">
-        <Card className="!border-success-100">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-stretch">
+        <Card className="!border-success-100 min-w-0 h-full overflow-hidden flex flex-col">
           <div className="flex items-center gap-2.5 mb-4">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-success-50 text-success-600">
               <CheckCircle2 className="h-4.5 w-4.5" />
@@ -89,10 +89,10 @@ export default function SkillGapAnalysis() {
             </div>
             <span className="ml-auto text-2xl font-extrabold text-success-600">{gap.matchedSkills.length}</span>
           </div>
-          <div className="flex flex-wrap gap-1.5">
+          <div className="min-w-0 w-full rounded-xl border border-success-100 bg-success-50/40 p-3 flex flex-wrap content-start gap-1.5 flex-1">
             {gap.matchedSkills.length === 0 && <p className="text-sm text-navy-400">No matches yet.</p>}
             {gap.matchedSkills.map((s) => (
-              <span key={s} className="rounded-lg bg-success-50 border border-success-100 px-2.5 py-1.5 text-xs font-bold text-success-700">
+              <span key={s} className="max-w-full break-words rounded-lg bg-white border border-success-200 px-2.5 py-1.5 text-xs font-bold text-success-700">
                 {s}
               </span>
             ))}
@@ -104,7 +104,7 @@ export default function SkillGapAnalysis() {
           )}
         </Card>
 
-        <Card className="!border-red-100">
+        <Card className="!border-red-100 min-w-0 h-full overflow-hidden flex flex-col">
           <div className="flex items-center gap-2.5 mb-4">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-danger-50 text-red-600">
               <XCircle className="h-4.5 w-4.5" />
@@ -115,12 +115,12 @@ export default function SkillGapAnalysis() {
             </div>
             <span className="ml-auto text-2xl font-extrabold text-red-600">{gap.missingSkills.length}</span>
           </div>
-          <div className="flex flex-wrap gap-1.5">
+          <div className="min-w-0 w-full rounded-xl border border-red-100 bg-red-50/40 p-3 flex flex-wrap content-start gap-1.5 flex-1">
             {gap.missingSkills.length === 0 && (
               <p className="text-sm font-medium text-success-600">Nothing missing — all requirements covered! 🎉</p>
             )}
             {gap.missingSkills.map((s) => (
-              <span key={s} className="rounded-lg bg-danger-50 border border-red-100 px-2.5 py-1.5 text-xs font-bold text-red-700">
+              <span key={s} className="max-w-full break-words rounded-lg bg-white border border-red-200 px-2.5 py-1.5 text-xs font-bold text-red-700">
                 {s}
               </span>
             ))}
@@ -132,7 +132,7 @@ export default function SkillGapAnalysis() {
           )}
         </Card>
 
-        <Card className="!border-warning-100">
+        <Card className="!border-warning-100 min-w-0 h-full overflow-hidden flex flex-col">
           <div className="flex items-center gap-2.5 mb-4">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-warning-50 text-warning-600">
               <AlertTriangle className="h-4.5 w-4.5" />
@@ -149,9 +149,9 @@ export default function SkillGapAnalysis() {
               projects or experience).
             </p>
           ) : (
-            <ul className="space-y-2.5">
+            <ul className="min-w-0 w-full rounded-xl border border-warning-100 bg-warning-50/30 p-3 space-y-2.5 flex-1">
               {gap.weakSkills.map((w) => (
-                <li key={w.name} className="rounded-xl bg-warning-50 border border-warning-100 px-3.5 py-2.5">
+                <li key={w.name} className="min-w-0 rounded-xl bg-white border border-warning-200 px-3.5 py-2.5 break-words">
                   <p className="text-xs font-bold text-warning-600">{w.name}</p>
                   <p className="text-[11px] text-navy-500 mt-1 leading-relaxed">{w.reason}</p>
                 </li>
