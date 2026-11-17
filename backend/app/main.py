@@ -432,6 +432,11 @@ def skill_gap(payload: SkillGapRequest, db: Session = Depends(get_db), user: Use
     career = get_career(payload.career_id)
     gap, readiness = calculate_gap(career, payload.skills), None
     readiness = calculate_readiness(gap)
+    # Keep one current snapshot per user and target career instead of duplicate rows.
+    db.query(SkillGapAnalysis).filter(
+        SkillGapAnalysis.user_id == user.id,
+        SkillGapAnalysis.career_id == payload.career_id
+    ).delete(synchronize_session=False)
     db.add(SkillGapAnalysis(user_id=user.id, career_id=payload.career_id, matched_skills=gap["matchedSkills"], missing_skills=gap["missingSkills"], readiness_score=readiness["overall"], result_data={"gap": gap, "readiness": readiness}))
     save_history(db, user.id, "skill-gap", payload.career_id, {"gap": gap, "readiness": readiness})
     db.commit()
@@ -442,6 +447,11 @@ def skill_gap(payload: SkillGapRequest, db: Session = Depends(get_db), user: Use
 def matching(payload: MatchingRequest, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     result = rank_careers(payload.skills)
     latest_resume = db.query(Resume).filter(Resume.user_id == user.id).order_by(Resume.id.desc()).first()
+    if latest_resume:
+        db.query(CareerMatch).filter(
+            CareerMatch.user_id == user.id,
+            CareerMatch.resume_id == latest_resume.id
+        ).delete(synchronize_session=False)
     for item in result:
         db.add(CareerMatch(user_id=user.id, resume_id=latest_resume.id if latest_resume else None, career_id=item["careerId"], match_score=item["score"], result_data=item))
     save_history(db, user.id, "career-matching", payload.resume_text, result)
@@ -553,15 +563,29 @@ def predict_career_role(
         )
     }
 
-    # Save prediction history.
-    save_history(
-        db,
-        user.id,
-        "ml-career-prediction",
-        resume_text,
-        result
-    )
+    # Save the latest prediction as a structured row linked to this user and resume.
+    latest_resume = db.query(Resume).filter(
+        Resume.user_id == user.id
+    ).order_by(Resume.id.desc()).first()
+    if latest_resume:
+        db.query(CareerPrediction).filter(
+            CareerPrediction.user_id == user.id,
+            CareerPrediction.resume_id == latest_resume.id
+        ).delete(synchronize_session=False)
 
+    db.add(CareerPrediction(
+        user_id=user.id,
+        resume_id=latest_resume.id if latest_resume else None,
+        predicted_role=str(prediction),
+        top_predictions=top_roles,
+        model_name="TF-IDF + Logistic Regression",
+        dataset_type="synthetic",
+        result_data=result
+    ))
+
+    save_history(
+        db, user.id, "ml-career-prediction", resume_text, result
+    )
     db.commit()
 
     return result
