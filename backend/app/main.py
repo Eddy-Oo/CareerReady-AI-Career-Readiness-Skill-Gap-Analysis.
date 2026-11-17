@@ -45,6 +45,7 @@ from fastapi import Body, Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
+from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -162,6 +163,16 @@ SECRET_KEY = os.getenv("SECRET_KEY", "development-only-change-this-secret")
 token_serializer = URLSafeTimedSerializer(SECRET_KEY, salt="careeready-auth")
 bearer_scheme = HTTPBearer(auto_error=False)
 Base.metadata.create_all(bind=engine)
+
+# Keep existing Neon databases in sync with model columns.
+# create_all() creates missing tables but does not add columns to existing tables.
+if engine.dialect.name == "postgresql":
+    with engine.begin() as connection:
+        connection.execute(text("""
+            ALTER TABLE career_predictions
+            ADD COLUMN IF NOT EXISTS resume_id BIGINT
+            REFERENCES resumes(id) ON DELETE SET NULL
+        """))
 
 
 def normalize(value: str) -> str:
