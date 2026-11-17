@@ -111,3 +111,29 @@ export async function apiPredictCareerRole(resumeText: string): Promise<MLPredic
     body: JSON.stringify({ resume_text: resumeText }),
   });
 }
+
+
+export interface AICareerAdvice {
+  predictedCareer: string;
+  advice: string;
+  existingSkills: string[];
+  missingSkills: string[];
+  model: string;
+}
+
+export async function apiGenerateCareerAdvice(params: {
+  resumeText: string;
+  predictedCareer: string;
+  existingSkills: string[];
+  missingSkills?: string[];
+}): Promise<AICareerAdvice> {
+  return apiFetch<AICareerAdvice>("/api/ai/career-advice", {
+    method: "POST",
+    body: JSON.stringify({
+      resume_text: params.resumeText,
+      predicted_career: params.predictedCareer,
+      existing_skills: params.existingSkills,
+      missing_skills: params.missingSkills ?? [],
+    }),
+  }, 60000);
+}
