@@ -197,8 +197,3 @@ export default function CareerMatching() {
     </div>
   );
 }
-
-import { useAnalysisStore } from "../store";
-function useAnalysisStoreSafe() {
-  return useAnalysisStore((s) => s.setToast);
-}
