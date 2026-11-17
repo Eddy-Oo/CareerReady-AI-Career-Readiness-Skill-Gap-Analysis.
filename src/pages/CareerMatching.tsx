@@ -93,14 +93,18 @@ export default function CareerMatching() {
                 </div>
               </div>
               <Button
-                className="mt-3 bg-white text-navy-800 hover:bg-brand-50"
-                size="sm"
+                variant="secondary"
+                className="mt-3 min-h-11 w-full !border-2 !border-white !bg-white !text-navy-900 shadow-md hover:!bg-brand-50"
+                size="md"
+                type="button"
+                aria-pressed={career?.id === top5[0].careerId}
                 onClick={() => {
                   selectCareer(top5[0].careerId);
                   setToast(`Target career set to ${top5[0].careerTitle}`);
                 }}
               >
-                Set as target
+                <Target className="h-4 w-4" />
+                {career?.id === top5[0].careerId ? "Target selected" : "Set as target"}
               </Button>
             </div>
           </div>
@@ -145,21 +149,28 @@ export default function CareerMatching() {
                   <span className="text-[11px] text-navy-300 font-semibold">No shared skills yet</span>
                 )}
               </div>
-              <div className="mt-4 flex gap-2">
+              <div className="mt-4 grid gap-2">
                 <Button
                   variant={isTarget ? "secondary" : "primary"}
-                  size="sm"
-                  className="flex-1"
+                  size="md"
+                  type="button"
+                  className={`min-h-11 w-full border-2 ${isTarget ? "!border-success-500 !bg-success-50 !text-success-800 hover:!bg-success-100" : "!border-brand-700 !bg-brand-700 !text-white hover:!bg-brand-800"}`}
+                  aria-pressed={isTarget}
                   onClick={() => {
                     selectCareer(m.careerId);
                     setToast(`Target career set to ${m.careerTitle}`);
                   }}
                 >
-                  {isTarget ? "View gap" : "Analyze gap"}
+                  {isTarget ? <CheckCircle2 className="h-4 w-4" /> : <Target className="h-4 w-4" />}
+                  {isTarget ? "Target selected" : "Set as target"}
                 </Button>
                 {c && (
-                  <Link to="/skill-gap" className="btn-ghost px-3 py-1.5 text-xs">
-                    →
+                  <Link
+                    to="/skill-gap"
+                    onClick={() => selectCareer(m.careerId)}
+                    className="inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-xl border border-navy-200 bg-white px-4 py-2 text-sm font-semibold text-navy-700 transition hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700"
+                  >
+                    Analyze skill gap <ArrowRight className="h-4 w-4" />
                   </Link>
                 )}
               </div>
