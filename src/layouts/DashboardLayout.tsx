@@ -16,7 +16,6 @@ import {
   Menu,
   X,
   Zap,
-  Bell,
 } from "lucide-react";
 import { useAuthStore, useAnalysisStore } from "../store";
 import { Toast } from "../components/ui";
@@ -191,10 +190,6 @@ export default function DashboardLayout() {
                 <span className="h-1.5 w-1.5 rounded-full bg-success-600 animate-pulse" />
                 AI Engine Online
               </span>
-              <button className="relative rounded-xl border border-navy-200 p-2 text-navy-500 hover:bg-navy-50 transition" aria-label="Notifications">
-                <Bell className="h-[18px] w-[18px]" />
-                <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-violet-600" />
-              </button>
               <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-brand-500 text-xs font-bold text-white">
                 {initials || "S"}
               </div>
