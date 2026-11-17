@@ -98,35 +98,53 @@ export function SkillDistributionChart({ skills }: { skills: Skill[] }) {
 /* ----------------------- Skill gap chart ------------------------- */
 export function SkillGapChart({ gap }: { gap: SkillGapResult }) {
   const data = [
-    { name: "Matched", value: gap.matchedSkills.length, fill: "#16A34A" },
-    { name: "Missing", value: gap.missingSkills.length, fill: "#DC2626" },
-    { name: "Weak", value: gap.weakSkills.length, fill: "#F59E0B" },
+    { name: "Matched", value: gap.matchedSkills.length, fill: "#16A34A", track: "bg-success-100", text: "text-success-700" },
+    { name: "Missing", value: gap.missingSkills.length, fill: "#DC2626", track: "bg-red-100", text: "text-red-700" },
+    { name: "Weak", value: gap.weakSkills.length, fill: "#F59E0B", track: "bg-warning-100", text: "text-warning-700" },
   ];
+  const total = data.reduce((sum, item) => sum + item.value, 0);
+
   return (
-    <div className="flex flex-col sm:flex-row items-center gap-6">
-      <div className="w-[200px] h-[200px] shrink-0">
-        <ResponsiveContainer width="100%" height="100%">
-          <PieChart>
-            <Pie data={data} dataKey="value" nameKey="name" innerRadius={55} outerRadius={85} paddingAngle={5} strokeWidth={0}>
-              {data.map((d, i) => (
-                <Cell key={i} fill={d.fill} />
-              ))}
-            </Pie>
-            <Tooltip contentStyle={tooltipStyle} />
-          </PieChart>
-        </ResponsiveContainer>
+    <div className="w-full min-w-0 space-y-4">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="text-3xl font-extrabold tracking-tight text-navy-800">{total}</p>
+          <p className="text-xs text-navy-400">Skills assessed</p>
+        </div>
+        <div className="text-right">
+          <p className="text-xs font-semibold text-navy-500">Distribution</p>
+          <p className="text-[11px] text-navy-400">Based on required skills</p>
+        </div>
       </div>
-      <div className="space-y-3 flex-1 w-full">
-        {data.map((d) => (
-          <div key={d.name} className="flex items-center justify-between rounded-xl border border-navy-100 px-4 py-2.5">
-            <span className="flex items-center gap-2 text-sm font-semibold text-navy-600">
-              <span className="h-2.5 w-2.5 rounded-full" style={{ background: d.fill }} />
-              {d.name}
-            </span>
-            <span className="text-lg font-extrabold text-navy-800">{d.value}</span>
+
+      {data.map((item) => {
+        const percent = total > 0 ? Math.round((item.value / total) * 100) : 0;
+        return (
+          <div key={item.name} className="min-w-0 space-y-2">
+            <div className="flex items-center justify-between gap-3">
+              <span className={`flex items-center gap-2 text-sm font-semibold ${item.text}`}>
+                <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: item.fill }} />
+                {item.name}
+              </span>
+              <span className="shrink-0 text-sm font-extrabold text-navy-800 tabular-nums">
+                {item.value} <span className="text-xs font-semibold text-navy-400">({percent}%)</span>
+              </span>
+            </div>
+            <div className={`h-3 w-full overflow-hidden rounded-full ${item.track}`}>
+              <div
+                className="h-full rounded-full transition-all duration-500"
+                style={{ width: `${percent}%`, minWidth: item.value > 0 ? "4px" : "0", backgroundColor: item.fill }}
+              />
+            </div>
           </div>
-        ))}
-      </div>
+        );
+      })}
+
+      {total === 0 && (
+        <p className="rounded-lg border border-navy-100 bg-navy-50 px-3 py-2 text-xs text-navy-500">
+          No required skills are available to compare yet. Select a career with skill requirements to see the distribution.
+        </p>
+      )}
     </div>
   );
 }
