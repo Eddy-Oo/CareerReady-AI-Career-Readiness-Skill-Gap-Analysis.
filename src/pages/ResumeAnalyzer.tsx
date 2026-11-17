@@ -79,8 +79,10 @@ export default function ResumeAnalyzer() {
 
   const [predicting, setPredicting] = useState(false);
   const [predictionError, setPredictionError] = useState<string | null>(null);
+  const savedPrediction = useAnalysisStore((s) => s.prediction);
+  const setSavedPrediction = useAnalysisStore((s) => s.setPrediction);
   const [prediction, setPrediction] =
-    useState<Awaited<ReturnType<typeof apiPredictCareerRole>> | null>(null);
+    useState<Awaited<ReturnType<typeof apiPredictCareerRole>> | null>(savedPrediction);
 
   const [generatingAdvice, setGeneratingAdvice] = useState(false);
   const [adviceError, setAdviceError] = useState<string | null>(null);
@@ -99,6 +101,7 @@ export default function ResumeAnalyzer() {
 
     // Clear previous prediction and advice for a new resume
     setPrediction(null);
+    setSavedPrediction(null);
     setPredictionError(null);
     setCareerAdvice(null);
     setAdviceError(null);
@@ -200,6 +203,7 @@ export default function ResumeAnalyzer() {
       console.log("ML prediction response:", result);
 
       setPrediction(result);
+      setSavedPrediction(result);
 
     } catch (e) {
       console.error("ML CAREER PREDICTION ERROR:", e);
