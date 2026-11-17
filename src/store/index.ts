@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { AnalysisRecord, AuthUser, UserProfile } from "../types";
-import { DEFAULT_PROFILE, SAMPLE_ANALYSIS, SAMPLE_HISTORY } from "../data/sample";
+import { DEFAULT_PROFILE } from "../data/sample";
 import type { ResumeAnalysis } from "../types";
 import { apiLogin, apiRegister } from "../api/client";
 
@@ -36,11 +36,12 @@ export const useAuthStore = create<AuthState>()(
         set({ loading: true, error: null });
         try {
           const user = await apiRegister(data);
+          useAnalysisStore.getState().resetForUser(user.id);
           set({
             user,
             loading: false,
             profile: {
-              ...get().profile,
+              ...DEFAULT_PROFILE,
               fullName: data.fullName,
               email: data.email,
               university: data.university,
@@ -59,7 +60,22 @@ export const useAuthStore = create<AuthState>()(
         set({ loading: true, error: null });
         try {
           const user = await apiLogin(email, password);
-          set({ user, loading: false, profile: { ...get().profile, email: user.email, fullName: user.fullName } });
+          const currentOwnerId = useAnalysisStore.getState().ownerUserId;
+
+          // Clear cached dashboard data only when a different account signs in.
+          if (currentOwnerId !== user.id) {
+            useAnalysisStore.getState().resetForUser(user.id);
+          }
+
+          set({
+            user,
+            loading: false,
+            profile: {
+              ...DEFAULT_PROFILE,
+              email: user.email,
+              fullName: user.fullName,
+            },
+          });
           return true;
         } catch (e) {
           set({ error: e instanceof Error ? e.message : "Login failed", loading: false });
@@ -67,7 +83,7 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      logout: () => set({ user: null }),
+      logout: () => set({ user: null, error: null }),
       clearError: () => set({ error: null }),
       updateProfile: (patch) => set({ profile: { ...get().profile, ...patch } }),
     }),
@@ -76,6 +92,7 @@ export const useAuthStore = create<AuthState>()(
 );
 
 interface AnalysisState {
+  ownerUserId: string | null;
   analysis: ResumeAnalysis | null;
   selectedCareerId: string | null;
   history: AnalysisRecord[];
@@ -86,14 +103,16 @@ interface AnalysisState {
   addHistory: (rec: AnalysisRecord) => void;
   toggleRoadmapItem: (phaseId: string) => void;
   setToast: (msg: string | null) => void;
+  resetForUser: (userId: string) => void;
 }
 
 export const useAnalysisStore = create<AnalysisState>()(
   persist(
     (set, get) => ({
-      analysis: SAMPLE_ANALYSIS,
+      ownerUserId: null,
+      analysis: null,
       selectedCareerId: null,
-      history: SAMPLE_HISTORY,
+      history: [],
       roadmapProgress: {},
       toast: null,
       setAnalysis: (a) => set({ analysis: a }),
@@ -102,6 +121,15 @@ export const useAnalysisStore = create<AnalysisState>()(
       toggleRoadmapItem: (phaseId) =>
         set({ roadmapProgress: { ...get().roadmapProgress, [phaseId]: !get().roadmapProgress[phaseId] } }),
       setToast: (msg) => set({ toast: msg }),
+      resetForUser: (userId) =>
+        set({
+          ownerUserId: userId,
+          analysis: null,
+          selectedCareerId: null,
+          history: [],
+          roadmapProgress: {},
+          toast: null,
+        }),
     }),
     { name: "careeready-analysis" }
   )
