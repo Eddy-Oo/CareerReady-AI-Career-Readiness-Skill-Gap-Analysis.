@@ -53,6 +53,16 @@ async function apiFetch<T>(path: string, init?: RequestInit, timeoutMs = 20000):
   }
 }
 
+export interface AccountData {
+  analysis: ResumeAnalysis | null;
+  selectedCareerId: string | null;
+  prediction: MLPrediction | null;
+}
+
+export async function apiGetAccountData(): Promise<AccountData> {
+  return apiFetch<AccountData>("/api/account/data");
+}
+
 export async function apiRegister(payload: {
   fullName: string; email: string; password: string; university: string; degree: string; graduationYear: string;
 }): Promise<AuthUser> {
