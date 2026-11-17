@@ -23,7 +23,7 @@ import {
   Spinner,
 } from "../components/ui";
 import { useAnalysisStore } from "../store";
-import { apiAnalyzeResume, apiPredictCareerRole } from "../api/client";
+import { apiAnalyzeResume, apiPredictCareerRole, apiGenerateCareerAdvice } from "../api/client";
 import { extractResumeText } from "../lib/extract";
 import { SKILL_CATEGORIES } from "../types";
 import type { SkillCategory } from "../types";
@@ -50,6 +50,9 @@ export default function ResumeAnalyzer() {
   const [predicting, setPredicting] = useState(false);
   const [predictionError, setPredictionError] = useState<string | null>(null);
   const [prediction, setPrediction] = useState<Awaited<ReturnType<typeof apiPredictCareerRole>> | null>(null);
+  const [generatingAdvice, setGeneratingAdvice] = useState(false);
+  const [adviceError, setAdviceError] = useState<string | null>(null);
+  const [careerAdvice, setCareerAdvice] = useState<Awaited<ReturnType<typeof apiGenerateCareerAdvice>> | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const { analysis, setAnalysis, setToast } = useAnalysisStore();
   const navigate = useNavigate();
@@ -134,6 +137,28 @@ export default function ResumeAnalyzer() {
       );
     } finally {
       setPredicting(false);
+    }
+  };
+
+
+  const handleGenerateCareerAdvice = async () => {
+    if (!analysis?.rawTextPreview?.trim() || !prediction || generatingAdvice) return;
+    setGeneratingAdvice(true);
+    setAdviceError(null);
+    setCareerAdvice(null);
+    try {
+      const result = await apiGenerateCareerAdvice({
+        resumeText: analysis.rawTextPreview,
+        predictedCareer: prediction.predictedJobRole,
+        existingSkills: analysis.extractedSkills.map((skill) => skill.name),
+      });
+      setCareerAdvice(result);
+    } catch (e) {
+      setAdviceError(
+        e instanceof Error ? e.message : "Could not generate career advice. Please try again."
+      );
+    } finally {
+      setGeneratingAdvice(false);
     }
   };
 
@@ -346,6 +371,60 @@ export default function ResumeAnalyzer() {
                   ))}
                 </div>
                 <p className="mt-4 text-xs leading-relaxed text-navy-400">{prediction.disclaimer}</p>
+              </div>
+            )}
+          </Card>
+
+
+          {/* Generative AI Career Advisor */}
+          <Card>
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-start gap-3">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-100 text-brand-700">
+                  <Sparkles className="h-6 w-6" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-navy-800">Generative AI Career Advisor</h3>
+                  <p className="mt-1 text-sm text-navy-500">
+                    Get personalized advice based on your resume and predicted career role.
+                  </p>
+                </div>
+              </div>
+              <Button onClick={handleGenerateCareerAdvice} disabled={generatingAdvice || !prediction}>
+                {generatingAdvice ? "Generating advice…" : "Generate AI Career Advice"}
+              </Button>
+            </div>
+            {!prediction && (
+              <p className="mt-3 text-xs text-navy-400">
+                First click “Predict My Career Role” above. Your prediction will guide the AI advice.
+              </p>
+            )}
+            {adviceError && (
+              <p role="alert" className="mt-4 rounded-lg border border-red-100 bg-danger-50 px-3 py-2 text-sm text-red-700">
+                {adviceError}
+              </p>
+            )}
+            {careerAdvice && (
+              <div className="mt-5 border-t border-navy-100 pt-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-wide text-navy-400">AI career recommendation</p>
+                    <p className="mt-1 text-lg font-extrabold text-brand-700">{careerAdvice.predictedCareer}</p>
+                  </div>
+                  <Badge tone="violet">Generative AI</Badge>
+                </div>
+                <div className="mt-4 whitespace-pre-wrap text-sm leading-7 text-navy-700">
+                  {careerAdvice.advice}
+                </div>
+                <div className="mt-4">
+                  <p className="text-xs font-bold uppercase tracking-wide text-navy-400">Skills found in your resume</p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {careerAdvice.existingSkills.map((skill) => (
+                      <Badge key={skill} tone="green">{skill}</Badge>
+                    ))}
+                  </div>
+                </div>
+                <p className="mt-3 text-xs text-navy-400">Generated with {careerAdvice.model}. AI advice is a guide, not a guaranteed career assessment.</p>
               </div>
             )}
           </Card>
