@@ -115,3 +115,17 @@ class LearningRoadmap(Base):
     career_id = Column(String(100), nullable=False)
     roadmap_data = Column(JSON_DATA, default=list)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class CareerPrediction(Base):
+    __tablename__ = "career_predictions"
+
+    id = Column(BIG_ID, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
+    resume_id = Column(BigInteger, ForeignKey("resumes.id", ondelete="SET NULL"), nullable=True)
+    predicted_role = Column(String(160), nullable=False)
+    top_predictions = Column(JSON_DATA, default=list)
+    model_name = Column(String(160))
+    dataset_type = Column(String(80))
+    result_data = Column(JSON_DATA, default=dict)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
