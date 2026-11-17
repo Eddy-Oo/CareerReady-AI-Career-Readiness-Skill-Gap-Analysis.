@@ -361,6 +361,28 @@ def rank_careers(skills: list[str]) -> list[dict]:
     return sorted(ranked, key=lambda item: item["score"], reverse=True)
 
 
+@app.get("/api/account/data")
+def get_account_data(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """Return the signed-in user's latest saved workspace data."""
+    latest_resume = db.query(Resume).filter(
+        Resume.user_id == user.id
+    ).order_by(Resume.id.desc()).first()
+
+    latest_gap = db.query(SkillGapAnalysis).filter(
+        SkillGapAnalysis.user_id == user.id
+    ).order_by(SkillGapAnalysis.id.desc()).first()
+
+    latest_prediction = db.query(CareerPrediction).filter(
+        CareerPrediction.user_id == user.id
+    ).order_by(CareerPrediction.id.desc()).first()
+
+    return {
+        "analysis": latest_resume.extracted_data if latest_resume else None,
+        "selectedCareerId": latest_gap.career_id if latest_gap else None,
+        "prediction": latest_prediction.result_data if latest_prediction else None,
+    }
+
+
 @app.get("/")
 def root():
     return {"message": "CareerReady AI API is running", "docs": "/docs"}
