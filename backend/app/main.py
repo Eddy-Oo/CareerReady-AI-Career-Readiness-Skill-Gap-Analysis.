@@ -164,15 +164,24 @@ token_serializer = URLSafeTimedSerializer(SECRET_KEY, salt="careeready-auth")
 bearer_scheme = HTTPBearer(auto_error=False)
 Base.metadata.create_all(bind=engine)
 
-# Keep existing Neon databases in sync with model columns.
-# create_all() creates missing tables but does not add columns to existing tables.
+# Keep an older Neon career_predictions table compatible with the current model.
+# SQLAlchemy create_all() does not add columns to an existing table.
 if engine.dialect.name == "postgresql":
+    career_prediction_columns = [
+        ("user_id", "INTEGER REFERENCES users(id) ON DELETE CASCADE"),
+        ("resume_id", "BIGINT REFERENCES resumes(id) ON DELETE SET NULL"),
+        ("predicted_role", "VARCHAR(160)"),
+        ("top_predictions", "JSONB DEFAULT '[]'::jsonb"),
+        ("model_name", "VARCHAR(160)"),
+        ("dataset_type", "VARCHAR(80)"),
+        ("result_data", "JSONB DEFAULT '{}'::jsonb"),
+        ("created_at", "TIMESTAMPTZ DEFAULT NOW()"),
+    ]
     with engine.begin() as connection:
-        connection.execute(text("""
-            ALTER TABLE career_predictions
-            ADD COLUMN IF NOT EXISTS resume_id BIGINT
-            REFERENCES resumes(id) ON DELETE SET NULL
-        """))
+        for column_name, column_definition in career_prediction_columns:
+            connection.execute(text(
+                f"ALTER TABLE career_predictions ADD COLUMN IF NOT EXISTS {column_name} {column_definition}"
+            ))
 
 
 def normalize(value: str) -> str:
