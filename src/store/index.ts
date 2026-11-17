@@ -3,7 +3,7 @@ import { persist } from "zustand/middleware";
 import type { AnalysisRecord, AuthUser, UserProfile } from "../types";
 import { DEFAULT_PROFILE } from "../data/sample";
 import type { ResumeAnalysis } from "../types";
-import { apiLogin, apiRegister } from "../api/client";
+import { apiGetAccountData, apiLogin, apiRegister } from "../api/client";
 
 interface AuthState {
   user: AuthUser | null;
@@ -76,6 +76,21 @@ export const useAuthStore = create<AuthState>()(
               fullName: user.fullName,
             },
           });
+
+          // Restore this account's latest saved resume and target career from Neon.
+          // The account token is persisted above before the authenticated request.
+          try {
+            const savedData = await apiGetAccountData();
+            const analysisStore = useAnalysisStore.getState();
+            analysisStore.setAnalysis(savedData.analysis);
+            analysisStore.selectCareer(savedData.selectedCareerId);
+          } catch (restoreError) {
+            console.error("ACCOUNT DATA RESTORE ERROR:", restoreError);
+            useAnalysisStore.getState().setToast(
+              "Signed in, but saved workspace data could not be loaded. Please refresh and try again."
+            );
+          }
+
           return true;
         } catch (e) {
           set({ error: e instanceof Error ? e.message : "Login failed", loading: false });
