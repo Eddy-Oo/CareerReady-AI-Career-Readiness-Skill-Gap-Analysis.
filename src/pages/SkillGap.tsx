@@ -26,7 +26,7 @@ export default function SkillGapAnalysis() {
       console.error("SKILL GAP SAVE ERROR:", error);
       setToast(error instanceof Error ? `Could not save skill-gap analysis: ${error.message}` : "Could not save skill-gap analysis.");
     });
-  }, [career?.id, analysis?.id, setToast]);
+  }, [career, gap, readiness, analysis, setToast]);
 
   if (!career || !gap || !readiness || !analysis) {
     return (
